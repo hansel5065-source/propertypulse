@@ -1940,12 +1940,49 @@ function normalizeRow(row) {
     }
     return '';
   };
+  // Fix garbled addresses where address+city+state+zip are crammed together
+  // e.g., "(01304222) Allison Ferry RdHuntersville, NC 2807801304222"
+  let rawAddr = get(['Address', 'address', 'property_address', 'street']);
+  let rawCity = get(['City', 'city']);
+  let rawState = get(['State', 'state']);
+  let rawZip = get(['ZIP', 'zip', 'Zip']);
+  if (rawAddr) {
+    // Clean "View Address - Charlotte, NC 28262" junk
+    rawAddr = rawAddr.replace(/View Address\s*-?\s*/i, '').replace(/[\n\t]+/g, ' ').trim();
+    // Clean up parcel IDs: "(01304222) Allison Ferry Rd" → "Allison Ferry Rd"
+    rawAddr = rawAddr.replace(/^\(\d+\)\s*/, '');
+    // Remove trailing parcel IDs appended to address
+    rawAddr = rawAddr.replace(/\d{7,}$/, '').trim();
+
+    if (!rawCity) {
+      // Try to split "Street NameCity, ST ZIP" crammed pattern
+      const crammedMatch = rawAddr.match(/^(.+?(?:St|Ave|Rd|Dr|Ln|Ct|Blvd|Way|Pl|Pkwy|Circle|Loop|Cir|Terr|Trail|Road|Drive|Lane|Court|Place|Street|Avenue|Boulevard|Highway|Hwy))\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*([A-Z]{2})\s*(\d{5})?/);
+      if (crammedMatch) {
+        rawAddr = crammedMatch[1].trim();
+        rawCity = crammedMatch[2].trim();
+        rawState = crammedMatch[3].trim();
+        if (crammedMatch[4]) rawZip = crammedMatch[4].substring(0, 5);
+      }
+      // Handle bare "City, ST ZIP" with no street
+      const bareMatch = rawAddr.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*([A-Z]{2})\s*(\d{5})?$/);
+      if (bareMatch) {
+        rawCity = rawCity || bareMatch[1].trim();
+        rawState = rawState || bareMatch[2].trim();
+        if (bareMatch[3]) rawZip = rawZip || bareMatch[3].substring(0, 5);
+        rawAddr = '';
+      }
+    }
+    // Always clean city name from address if it's appended: "1142 Mockingbird Lane, Charlotte"
+    if (rawCity) {
+      rawAddr = rawAddr.replace(new RegExp(',\\s*' + rawCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*$', 'i'), '').trim();
+    }
+  }
   return {
-    address: get(['Address', 'address', 'property_address', 'street']),
-    city: get(['City', 'city']),
-    state: get(['State', 'state']),
+    address: rawAddr,
+    city: rawCity,
+    state: rawState,
     county: get(['County', 'county']),
-    zip: get(['ZIP', 'zip', 'Zip']),
+    zip: rawZip,
     category: (() => {
       let cat = get(['Category', 'category', 'type', 'Doc Type']);
       // Strip emoji prefixes: "🏠 Foreclosure" → "foreclosure"
@@ -2098,8 +2135,41 @@ function parseDate(dateStr) {
   if (slashMatch) {
     d = new Date(parseInt(slashMatch[3]), parseInt(slashMatch[1]) - 1, parseInt(slashMatch[2]));
   } else {
-    // Try ISO format YYYY-MM-DD
-    d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
+    // Handle long-form dates: "March 25, 2025 at 10 am", "December 9, 2025, at 10 am"
+    const longMatch = dateStr.match(/^([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})/);
+    if (longMatch) {
+      const months = {january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11};
+      const mi = months[longMatch[1].toLowerCase()];
+      if (mi !== undefined) {
+        d = new Date(parseInt(longMatch[3]), mi, parseInt(longMatch[2]));
+      }
+    }
+    // Handle "Month Day" without year (e.g., "March 26") — assume current year
+    if (!d || isNaN(d.getTime())) {
+      const shortMatch = dateStr.match(/^([A-Za-z]+)\s+(\d{1,2})$/);
+      if (shortMatch) {
+        const months = {january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11};
+        const mi = months[shortMatch[1].toLowerCase()];
+        if (mi !== undefined) {
+          d = new Date(new Date().getFullYear(), mi, parseInt(shortMatch[2]));
+        }
+      }
+    }
+    // Handle "November 19, 2025 @ 10 am" format
+    if (!d || isNaN(d.getTime())) {
+      const atMatch = dateStr.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s*(\d{4})\s*[@at]/);
+      if (atMatch) {
+        const months = {january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11};
+        const mi = months[atMatch[1].toLowerCase()];
+        if (mi !== undefined) {
+          d = new Date(parseInt(atMatch[3]), mi, parseInt(atMatch[2]));
+        }
+      }
+    }
+    // Fallback: Try ISO format YYYY-MM-DD
+    if (!d || isNaN(d.getTime())) {
+      d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
+    }
   }
   return isNaN(d.getTime()) ? null : d;
 }
@@ -2507,6 +2577,7 @@ function renderLeads(reset = false) {
       <div class="card-pills">
         <span class="pill ${getCategoryClass(item.category)}">${formatCategory(item.category)}</span>
         <span class="pill pill-county">${item.county || 'Unknown'}</span>
+        ${item.propertyType ? `<span class="pill" style="background:var(--purple-bg);color:var(--purple)">${item.propertyType}</span>` : ''}
       </div>
       <div class="card-details">
         ${item.saleDate ? `<div class="detail-item">
@@ -2522,7 +2593,6 @@ function renderLeads(reset = false) {
           <span class="detail-label">Assessed</span>
           <span class="detail-value">${formatPrice(item.taxValue)}</span>
         </div>
-        ${item.propertyType ? `<div class="detail-item"><span class="detail-label">Type</span><span class="detail-value">${item.propertyType}</span></div>` : ''}
         ${item.beds || item.baths ? `<div class="detail-item"><span class="detail-label">Bed/Bath</span><span class="detail-value">${item.beds || '-'}/${item.baths || '-'}</span></div>` : ''}
         ${item.sqft ? `<div class="detail-item"><span class="detail-label">Sq Ft</span><span class="detail-value">${Number(item.sqft).toLocaleString()}</span></div>` : ''}
         ${item.estArv ? `<div class="detail-item"><span class="detail-label">Est ARV</span><span class="detail-value">${formatPrice(item.estArv)}</span></div>` : ''}

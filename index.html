@@ -1,0 +1,2297 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>PropertyPulse — Investment Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+/* ============================================
+   CSS CUSTOM PROPERTIES & THEMING
+   ============================================ */
+:root {
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --transition: 0.2s ease;
+  --transition-slow: 0.35s ease;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --nav-height: 64px;
+  --header-height: 56px;
+}
+
+[data-theme="dark"] {
+  --bg: #0F172A;
+  --bg-elevated: #1E293B;
+  --bg-card: #1E293B;
+  --bg-card-hover: #263348;
+  --bg-input: #0F172A;
+  --bg-glass: rgba(15, 23, 42, 0.75);
+  --border: rgba(148, 163, 184, 0.12);
+  --border-strong: rgba(148, 163, 184, 0.2);
+  --text: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --accent: #3B82F6;
+  --accent-hover: #2563EB;
+  --accent-glow: rgba(59, 130, 246, 0.15);
+  --red: #EF4444;
+  --red-bg: rgba(239, 68, 68, 0.12);
+  --orange: #F59E0B;
+  --orange-bg: rgba(245, 158, 11, 0.12);
+  --green: #22C55E;
+  --green-bg: rgba(34, 197, 94, 0.12);
+  --purple: #A855F7;
+  --purple-bg: rgba(168, 85, 247, 0.12);
+  --cyan: #06B6D4;
+  --cyan-bg: rgba(6, 182, 212, 0.12);
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
+  --shadow-card: 0 2px 12px rgba(0,0,0,0.25);
+}
+
+[data-theme="light"] {
+  --bg: #F1F5F9;
+  --bg-elevated: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F8FAFC;
+  --bg-input: #F1F5F9;
+  --bg-glass: rgba(241, 245, 249, 0.8);
+  --border: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.15);
+  --text: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --accent: #3B82F6;
+  --accent-hover: #2563EB;
+  --accent-glow: rgba(59, 130, 246, 0.1);
+  --red: #DC2626;
+  --red-bg: rgba(220, 38, 38, 0.08);
+  --orange: #D97706;
+  --orange-bg: rgba(217, 119, 6, 0.08);
+  --green: #16A34A;
+  --green-bg: rgba(22, 163, 74, 0.08);
+  --purple: #9333EA;
+  --purple-bg: rgba(147, 51, 234, 0.08);
+  --cyan: #0891B2;
+  --cyan-bg: rgba(8, 145, 178, 0.08);
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.05);
+  --shadow-card: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+/* ============================================
+   RESET & BASE
+   ============================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding-top: calc(var(--header-height) + var(--safe-top));
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--header-height) + var(--safe-top));
+  padding-top: var(--safe-top);
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  padding-left: calc(16px + var(--safe-left));
+  padding-right: calc(16px + var(--safe-right));
+  contain: layout;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  height: var(--header-height);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-logo {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--accent), #8B5CF6);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: white;
+  font-weight: 800;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  font-size: 20px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-icon:hover, .btn-icon:focus-visible {
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+.btn-icon:active { transform: scale(0.92); }
+
+/* ============================================
+   SETUP BANNER
+   ============================================ */
+.setup-banner {
+  margin: 16px;
+  padding: 16px;
+  background: var(--accent-glow);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: var(--radius);
+  max-width: 568px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.setup-banner h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.setup-banner p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.setup-banner ol {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  padding-left: 20px;
+  margin-top: 8px;
+}
+
+.setup-banner .dismiss {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.setup-banner.hidden { display: none; }
+
+/* ============================================
+   BOTTOM NAVIGATION
+   ============================================ */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--nav-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid var(--border);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  contain: layout;
+}
+
+.nav-items {
+  display: flex;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  min-height: 44px;
+}
+
+.nav-item.active { color: var(--accent); }
+.nav-item:active { transform: scale(0.92); }
+
+.nav-icon {
+  font-size: 22px;
+  line-height: 1;
+  position: relative;
+}
+
+.nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background: var(--red);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.nav-badge:empty, .nav-badge.hidden { display: none; }
+
+.nav-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+/* Active indicator line */
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 3px;
+  background: var(--accent);
+  border-radius: 0 0 3px 3px;
+}
+
+/* ============================================
+   PAGE VIEWS
+   ============================================ */
+.page {
+  display: none;
+  padding: 0 16px 16px;
+  max-width: 600px;
+  margin: 0 auto;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  will-change: opacity, transform;
+}
+
+.page.active {
+  display: block;
+}
+
+.page.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================
+   PULL TO REFRESH
+   ============================================ */
+.pull-indicator {
+  text-align: center;
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(-30px);
+  transition: var(--transition);
+}
+
+.pull-indicator.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.pull-indicator .spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================================
+   DASHBOARD TAB
+   ============================================ */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  transition: var(--transition);
+  contain: content;
+}
+
+.stat-card:hover { border-color: var(--border-strong); }
+
+.stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.stat-icon.blue { background: var(--accent-glow); }
+.stat-icon.red { background: var(--red-bg); }
+.stat-icon.green { background: var(--green-bg); }
+.stat-icon.purple { background: var(--purple-bg); }
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Donut Chart */
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 24px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.donut-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.donut-wrapper {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+}
+
+.donut-svg {
+  width: 120px;
+  height: 120px;
+  transform: rotate(-90deg);
+}
+
+.donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.donut-center-value {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.donut-center-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.donut-legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label { flex: 1; color: var(--text-secondary); }
+.legend-value { font-weight: 700; font-size: 14px; }
+
+/* Category Breakdown */
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.category-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.category-name {
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 100px;
+  white-space: nowrap;
+}
+
+.category-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.category-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+  will-change: width;
+}
+
+.category-count {
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 24px;
+  text-align: right;
+}
+
+/* Hot Leads Mini */
+.hot-leads-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hot-lead-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.hot-lead-item:active { transform: scale(0.98); background: var(--bg-card-hover); }
+
+.hot-lead-score {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: white;
+  flex-shrink: 0;
+}
+
+.hot-lead-info { flex: 1; min-width: 0; }
+
+.hot-lead-address {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hot-lead-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.hot-lead-arrow {
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+/* ============================================
+   LEADS TAB
+   ============================================ */
+.search-container {
+  position: sticky;
+  top: calc(var(--header-height) + var(--safe-top));
+  z-index: 50;
+  background: var(--bg);
+  padding: 12px 0;
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 14px;
+  height: 44px;
+  transition: var(--transition);
+}
+
+.search-bar:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.search-bar svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  width: 18px;
+  height: 18px;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  padding: 0 10px;
+  outline: none;
+  min-width: 0;
+}
+
+.search-input::placeholder { color: var(--text-muted); }
+
+.search-clear {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.search-clear.show { display: flex; }
+
+/* Filters */
+.filter-section {
+  margin: 8px 0 4px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.filter-row::-webkit-scrollbar { display: none; }
+
+.filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+  -webkit-tap-highlight-color: transparent;
+  min-height: 36px;
+}
+
+.chip:active { transform: scale(0.95); }
+
+.chip.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Sort bar */
+.sort-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 10px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.sort-options { display: flex; gap: 4px; }
+
+.sort-btn {
+  padding: 5px 10px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.sort-btn.active {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: rgba(59,130,246,0.3);
+}
+
+/* Property Cards */
+.leads-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.property-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  position: relative;
+  transition: var(--transition);
+  contain: content;
+}
+
+.property-card:active { transform: scale(0.985); }
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.card-address {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+}
+
+.score-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: white;
+  flex-shrink: 0;
+}
+
+.score-hot { background: linear-gradient(135deg, #EF4444, #DC2626); box-shadow: 0 2px 12px rgba(239,68,68,0.35); }
+.score-warm { background: linear-gradient(135deg, #F59E0B, #D97706); box-shadow: 0 2px 12px rgba(245,158,11,0.3); }
+.score-cool { background: linear-gradient(135deg, #64748B, #475569); }
+
+.card-owner {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 4px 0 10px;
+}
+
+.card-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pill-foreclosure { background: var(--red-bg); color: var(--red); }
+.pill-tax { background: var(--orange-bg); color: var(--orange); }
+.pill-auction { background: var(--purple-bg); color: var(--purple); }
+.pill-lis { background: var(--cyan-bg); color: var(--cyan); }
+.pill-other { background: var(--green-bg); color: var(--green); }
+.pill-county { background: var(--bg); color: var(--text-secondary); border: 1px solid var(--border); }
+
+.card-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detail-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.detail-countdown {
+  font-weight: 700;
+}
+
+.countdown-urgent { color: var(--red); }
+.countdown-soon { color: var(--orange); }
+.countdown-ok { color: var(--green); }
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.card-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card-btn:active { transform: scale(0.95); background: var(--bg-card-hover); }
+.card-btn svg { width: 16px; height: 16px; }
+
+/* Load more */
+.load-more {
+  text-align: center;
+  padding: 20px;
+}
+
+.load-more-btn {
+  padding: 12px 32px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.load-more-btn:active { transform: scale(0.96); }
+.load-more-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ============================================
+   MAP TAB
+   ============================================ */
+.map-placeholder {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+}
+
+.map-placeholder-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.map-placeholder h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.map-placeholder p {
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 280px;
+  margin: 0 auto 24px;
+}
+
+.map-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text);
+  transition: var(--transition);
+}
+
+.map-list-item:active { transform: scale(0.98); }
+
+.map-list-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--accent-glow);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.map-list-info { flex: 1; min-width: 0; }
+
+.map-list-addr {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-list-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.map-list-arrow { color: var(--text-muted); }
+
+/* ============================================
+   DEADLINES TAB
+   ============================================ */
+.deadline-month {
+  margin: 20px 0 12px;
+}
+
+.deadline-month-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deadline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.deadline-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.deadline-date-box {
+  width: 48px;
+  height: 52px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.deadline-date-month {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.deadline-date-day {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.pulse-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  background: var(--red);
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+}
+
+.deadline-info { flex: 1; min-width: 0; }
+
+.deadline-address {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deadline-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.deadline-countdown {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+.deadline-countdown.urgent { background: var(--red-bg); color: var(--red); }
+.deadline-countdown.soon { background: var(--orange-bg); color: var(--orange); }
+.deadline-countdown.ok { background: var(--green-bg); color: var(--green); }
+
+/* ============================================
+   SKELETON LOADING
+   ============================================ */
+.skeleton {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.skeleton-card { height: 200px; margin-bottom: 12px; }
+.skeleton-stat { height: 100px; }
+
+/* ============================================
+   TOAST NOTIFICATIONS
+   ============================================ */
+.toast-container {
+  position: fixed;
+  bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.toast {
+  background: var(--bg-elevated);
+  color: var(--text);
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: toastIn 0.3s ease, toastOut 0.3s ease 2.5s forwards;
+  white-space: nowrap;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(20px); }
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.empty-state h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.empty-state p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (min-width: 500px) {
+  .stat-grid { grid-template-columns: repeat(4, 1fr); }
+  .stat-value { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header" role="banner">
+  <div class="header-inner">
+    <div class="header-brand">
+      <div class="header-logo" aria-hidden="true">P</div>
+      <h1 class="header-title">PropertyPulse</h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">
+        <span id="themeIcon">&#9789;</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- SETUP BANNER -->
+<div class="setup-banner" id="setupBanner">
+  <h3>&#128279; Connect Your Google Sheet</h3>
+  <p>To load live data from your property tracker:</p>
+  <ol>
+    <li>Open your Google Sheet</li>
+    <li>Click <strong>Share</strong> &rarr; <strong>Anyone with the link</strong> &rarr; <strong>Viewer</strong></li>
+    <li>Copy the URL from your browser</li>
+    <li>Paste it into the <code>GOOGLE_SHEET_URL</code> config in this file</li>
+  </ol>
+  <button class="dismiss" id="dismissBanner">Using demo data &mdash; dismiss</button>
+</div>
+
+<!-- PULL TO REFRESH INDICATOR -->
+<div class="pull-indicator" id="pullIndicator">
+  <span class="spinner"></span> Refreshing data...
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+<!-- ===================== DASHBOARD PAGE ===================== -->
+<section class="page active" id="pageDashboard" aria-label="Dashboard">
+  <div class="stat-grid" id="statGrid"></div>
+
+  <h2 class="section-title">&#128200; Leads by County</h2>
+  <div class="donut-container" id="donutContainer"></div>
+
+  <h2 class="section-title">&#128202; Category Breakdown</h2>
+  <div class="category-list" id="categoryList"></div>
+
+  <h2 class="section-title">&#128293; Hot Leads This Week</h2>
+  <div class="hot-leads-list" id="hotLeadsList"></div>
+</section>
+
+<!-- ===================== LEADS PAGE ===================== -->
+<section class="page" id="pageLeads" aria-label="Leads">
+  <div class="search-container">
+    <div class="search-bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" type="text" id="searchInput" placeholder="Search address, owner, city..." aria-label="Search leads">
+      <button class="search-clear" id="searchClear" aria-label="Clear search">&times;</button>
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-label">County</div>
+    <div class="filter-row" id="countyFilters"></div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-label">Score</div>
+    <div class="filter-row" id="scoreFilters">
+      <button class="chip active" data-score="all">All</button>
+      <button class="chip" data-score="hot">&#128293; Hot 6+</button>
+      <button class="chip" data-score="warm">&#127777; Warm 4-5</button>
+      <button class="chip" data-score="cool">Cool 1-4</button>
+    </div>
+  </div>
+
+  <div class="sort-bar">
+    <span id="leadCount">0 leads</span>
+    <div class="sort-options">
+      <button class="sort-btn active" data-sort="score">Score</button>
+      <button class="sort-btn" data-sort="date">Date</button>
+      <button class="sort-btn" data-sort="price">Price</button>
+    </div>
+  </div>
+
+  <div class="leads-list" id="leadsList"></div>
+  <div class="load-more" id="loadMore" style="display:none;">
+    <button class="load-more-btn" id="loadMoreBtn">Load More</button>
+  </div>
+</section>
+
+<!-- ===================== MAP PAGE ===================== -->
+<section class="page" id="pageMap" aria-label="Map">
+  <div class="map-placeholder">
+    <div class="map-placeholder-icon">&#128506;</div>
+    <h3>Map View Coming Soon</h3>
+    <p>Tap any property card's map button to open directions in Google Maps.</p>
+  </div>
+  <h2 class="section-title" style="margin-top:8px;">&#128205; All Properties</h2>
+  <div class="map-list" id="mapList"></div>
+</section>
+
+<!-- ===================== DEADLINES PAGE ===================== -->
+<section class="page" id="pageDeadlines" aria-label="Deadlines">
+  <div id="deadlinesContent"></div>
+</section>
+
+<!-- ===================== BOTTOM NAV ===================== -->
+<nav class="bottom-nav" role="navigation" aria-label="Main navigation">
+  <div class="nav-items">
+    <button class="nav-item active" data-tab="pageDashboard" aria-label="Dashboard">
+      <span class="nav-icon">&#127968;</span>
+      <span class="nav-label">Dashboard</span>
+    </button>
+    <button class="nav-item" data-tab="pageLeads" aria-label="Leads">
+      <span class="nav-icon">
+        &#128203;
+        <span class="nav-badge hidden" id="leadsBadge"></span>
+      </span>
+      <span class="nav-label">Leads</span>
+    </button>
+    <button class="nav-item" data-tab="pageMap" aria-label="Map">
+      <span class="nav-icon">&#128506;</span>
+      <span class="nav-label">Map</span>
+    </button>
+    <button class="nav-item" data-tab="pageDeadlines" aria-label="Deadlines">
+      <span class="nav-icon">&#128197;</span>
+      <span class="nav-label">Deadlines</span>
+    </button>
+  </div>
+</nav>
+
+<script>
+// ===== CONFIGURATION =====
+// Paste your Google Sheet URL here (the full URL from your browser)
+const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1L9KEqViJi1OjKuKj4MhJRhKvK4R9-VliT7QuJaqutl0/edit?usp=sharing';
+// GIDs for each sheet tab (uploaded xlsx files need gid, not sheet name)
+const SHEET_GIDS = {
+  dashboard: '1539940576',
+  hotLeads: '589093455',
+  allListings: '1016033723',
+  mecklenburg: '979395228',
+  union: '1115897537',
+  gaston: '1372484254',
+  york: '784172919',
+  deadlines: '1342902363',
+  investmentGuide: '251912162',
+  sources: '553360461'
+};
+// Which tab to load data from (use allListings for full data)
+const ACTIVE_GID = SHEET_GIDS.allListings;
+const SHEET_NAME = 'All Listings';
+// Local JSON fallback for development
+const LOCAL_JSON_PATH = '../results_2026-03-14.json';
+// ===== END CONFIGURATION =====
+
+// ============================================
+// DEMO DATA (20 realistic sample records)
+// ============================================
+const DEMO_DATA = [
+  {"address":"4821 Freedom Dr","city":"Charlotte","state":"NC","county":"Mecklenburg","category":"tax_foreclosure","ownerName":"James T. Whitfield","saleDate":"2026-04-02","salePrice":"38500","taxValue":"145000","source":"Kania Law","listingUrl":"https://example.com/1","score":10,"status":"Active"},
+  {"address":"1107 Brookshire Blvd","city":"Charlotte","state":"NC","county":"Mecklenburg","category":"foreclosure","ownerName":"Maria Elena Santos","saleDate":"2026-04-08","salePrice":"62000","taxValue":"189000","source":"Shapiro & Ingle","listingUrl":"https://example.com/2","score":9,"status":"Active"},
+  {"address":"302 E Franklin Blvd","city":"Gastonia","state":"NC","county":"Gaston","category":"tax_sale","ownerName":"Robert C. Henderson","saleDate":"2026-04-15","salePrice":"24000","taxValue":"87000","source":"County Tax Office","listingUrl":"https://example.com/3","score":9,"status":"Active"},
+  {"address":"5540 Albemarle Rd","city":"Charlotte","state":"NC","county":"Mecklenburg","category":"lis_pendens","ownerName":"David & Lisa Thornton","saleDate":"2026-05-01","salePrice":"71000","taxValue":"212000","source":"NCCOURTS","listingUrl":"https://example.com/4","score":8,"status":"Active"},
+  {"address":"718 Union Rd S","city":"Gastonia","state":"NC","county":"Gaston","category":"auction","ownerName":"Franklin D. Pierce","saleDate":"2026-04-22","salePrice":"45000","taxValue":"132000","source":"Auction.com","listingUrl":"https://example.com/5","score":8,"status":"Active"},
+  {"address":"3392 Hwy 74 W","city":"Monroe","state":"NC","county":"Union","category":"tax_foreclosure","ownerName":"Patricia A. Givens","saleDate":"2026-04-10","salePrice":"29000","taxValue":"94000","source":"Kania Law","listingUrl":"https://example.com/6","score":8,"status":"Active"},
+  {"address":"1005 India Hook Rd","city":"Rock Hill","state":"SC","county":"York","category":"master_sale","ownerName":"Anthony M. Russell","saleDate":"2026-04-18","salePrice":"53000","taxValue":"167000","source":"York County Clerk","listingUrl":"https://example.com/7","score":7,"status":"Active"},
+  {"address":"410 Remount Rd","city":"Charlotte","state":"NC","county":"Mecklenburg","category":"tax_delinquent","ownerName":"Sandra K. Williams","saleDate":"2026-06-15","salePrice":"","taxValue":"156000","source":"Meck Tax Office","listingUrl":"https://example.com/8","score":7,"status":"Active"},
+  {"address":"2288 E Garrison Blvd","city":"Gastonia","state":"NC","county":"Gaston","category":"foreclosure","ownerName":"Michael B. Crawford","saleDate":"2026-05-05","salePrice":"55000","taxValue":"148000","source":"Shapiro & Ingle","listingUrl":"https://example.com/9","score":7,"status":"Active"},
+  {"address":"615 Lancaster Hwy","city":"Indian Trail","state":"NC","county":"Union","category":"county_sale","ownerName":"Teresa R. Nguyen","saleDate":"2026-05-12","salePrice":"41000","taxValue":"119000","source":"Union County","listingUrl":"https://example.com/10","score":6,"status":"Active"},
+  {"address":"129 Cherry Rd","city":"Rock Hill","state":"SC","county":"York","category":"tax_foreclosure","ownerName":"Charles E. Dawson","saleDate":"2026-05-20","salePrice":"33000","taxValue":"101000","source":"York County Clerk","listingUrl":"https://example.com/11","score":6,"status":"Active"},
+  {"address":"7814 N Tryon St","city":"Charlotte","state":"NC","county":"Mecklenburg","category":"probate","ownerName":"Estate of Harold Mitchell","saleDate":"2026-06-01","salePrice":"78000","taxValue":"225000","source":"Meck Probate","listingUrl":"https://example.com/12","score":6,"status":"Active"},
+  {"address":"901 Bessemer City Rd","city":"Gastonia","state":"NC","county":"Gaston","category":"tax_delinquent","ownerName":"Donna J. Carpenter","saleDate":"2026-07-01","salePrice":"","taxValue":"73000","source":"Gaston Tax Office","listingUrl":"https://example.com/13","score":5,"status":"Active"},
+  {"address":"2045 Waxhaw Indian Trail Rd","city":"Waxhaw","state":"NC","county":"Union","category":"lis_pendens","ownerName":"Kevin P. Strickland","saleDate":"2026-05-28","salePrice":"68000","taxValue":"195000","source":"NCCOURTS","listingUrl":"https://example.com/14","score":5,"status":"Active"},
+  {"address":"330 Celanese Rd","city":"Rock Hill","state":"SC","county":"York","category":"auction","ownerName":"Angela F. Butler","saleDate":"2026-04-25","salePrice":"52000","taxValue":"143000","source":"Auction.com","listingUrl":"https://example.com/15","score":5,"status":"Active"},
+  {"address":"1820 Statesville Ave","city":"Charlotte","state":"NC","county":"Mecklenburg","category":"tax_sale","ownerName":"Gregory L. Foster","saleDate":"2026-06-10","salePrice":"31000","taxValue":"110000","source":"Meck Tax Office","listingUrl":"https://example.com/16","score":4,"status":"Active"},
+  {"address":"505 New Hope Rd","city":"Gastonia","state":"NC","county":"Gaston","category":"tax_foreclosure","ownerName":"Jessica M. Dixon","saleDate":"2026-06-20","salePrice":"27000","taxValue":"82000","source":"Kania Law","listingUrl":"https://example.com/17","score":4,"status":"Active"},
+  {"address":"1430 Skyway Dr","city":"Monroe","state":"NC","county":"Union","category":"foreclosure","ownerName":"William H. Owens","saleDate":"2026-07-15","salePrice":"59000","taxValue":"176000","source":"Shapiro & Ingle","listingUrl":"https://example.com/18","score":3,"status":"Active"},
+  {"address":"220 Carowinds Blvd","city":"Fort Mill","state":"SC","county":"York","category":"tax_delinquent","ownerName":"Brenda S. Hamilton","saleDate":"2026-08-01","salePrice":"","taxValue":"198000","source":"York Tax Office","listingUrl":"https://example.com/19","score":2,"status":"Active"},
+  {"address":"6230 South Blvd","city":"Charlotte","state":"NC","county":"Mecklenburg","category":"probate","ownerName":"Estate of Dorothy Allen","saleDate":"2026-09-01","salePrice":"92000","taxValue":"265000","source":"Meck Probate","listingUrl":"https://example.com/20","score":1,"status":"Active"}
+];
+
+// ============================================
+// STATE
+// ============================================
+let allData = [];
+let filteredData = [];
+let displayedCount = 0;
+const PAGE_SIZE = 20;
+let activeTab = localStorage.getItem('pp_activeTab') || 'pageDashboard';
+let activeCounty = localStorage.getItem('pp_county') || 'all';
+let activeScore = localStorage.getItem('pp_score') || 'all';
+let activeSort = localStorage.getItem('pp_sort') || 'score';
+let searchQuery = '';
+
+// ============================================
+// GOOGLE SHEETS INTEGRATION
+// ============================================
+function extractSheetId(url) {
+  if (!url) return null;
+  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
+function extractGid(url) {
+  if (!url) return null;
+  const match = url.match(/gid=(\d+)/);
+  return match ? match[1] : null;
+}
+
+function buildCsvUrl(sheetUrl, gid) {
+  const id = extractSheetId(sheetUrl);
+  if (!id) return null;
+  // Always use gid for uploaded xlsx files
+  if (gid) return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&gid=${gid}`;
+  return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv`;
+}
+
+function normalizeRow(row) {
+  // Map CSV columns to app format — matches 4County Property Tracker Excel headers
+  const get = (keys) => {
+    for (const k of keys) {
+      const val = row[k];
+      if (val !== undefined && val !== null && val !== '') return String(val).trim();
+    }
+    // Also try case-insensitive
+    const rowKeys = Object.keys(row);
+    for (const k of keys) {
+      const kl = k.toLowerCase();
+      const found = rowKeys.find(rk => rk.toLowerCase() === kl || rk.toLowerCase().replace(/[^a-z]/g, '').includes(kl.replace(/[^a-z]/g, '')));
+      if (found && row[found] !== undefined && row[found] !== null && row[found] !== '') return String(row[found]).trim();
+    }
+    return '';
+  };
+  return {
+    address: get(['Address', 'address', 'property_address', 'street']),
+    city: get(['City', 'city']),
+    state: get(['State', 'state']),
+    county: get(['County', 'county']),
+    zip: get(['ZIP', 'zip', 'Zip']),
+    category: (() => {
+      let cat = get(['Category', 'category', 'type', 'Doc Type']);
+      // Strip emoji prefixes: "🏠 Foreclosure" → "foreclosure"
+      cat = cat.replace(/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}]\s*/u, '').trim();
+      // Normalize to snake_case
+      return cat.toLowerCase().replace(/\s+/g, '_');
+    })(),
+    ownerName: get(['Owner / Party', 'ownerName', 'owner_name', 'Owner', 'owner']),
+    saleDate: get(['Sale Date', 'saleDate', 'sale_date', 'date']),
+    salePrice: get(['Current Bid ($)', 'salePrice', 'sale_price', 'Price', 'price', 'openingBid']),
+    taxValue: get(['Assessed Value ($)', 'taxValue', 'tax_value', 'Tax Value']),
+    source: get(['Source Name', 'source', 'Source', 'All Sources']),
+    listingUrl: (() => {
+      const link = get(['Link', 'listingUrl', 'listing_url', 'url', 'URL']);
+      // CSV exports show display text like "🔗 Open" not the actual URL — skip those
+      if (!link || link.includes('🔗') || link === 'Open') return '';
+      return link;
+    })(),
+    mapUrl: (() => {
+      const map = get(['Map', 'mapUrl', 'map_url']);
+      if (!map || map.includes('🗺') || map === 'Map') return '';
+      return map;
+    })(),
+    parcelId: get(['Parcel #', 'parcelId', 'parcel_id']),
+    caseNumber: get(['Case / File #', 'caseNumber', 'case_number']),
+    docType: get(['Doc Type', 'docType', 'doc_type']),
+    notes: get(['Notes', 'notes']),
+    status: get(['Status', 'status']) || 'Active',
+    lastUpsetDay: get(['Last Day Upset', 'lastUpsetDay']),
+    propertyType: get(['Property Type', 'propertyType', 'property_type']),
+    beds: get(['Beds', 'beds']),
+    baths: get(['Baths', 'baths']),
+    sqft: get(['Sq Ft', 'sqft', 'sq_ft']),
+    yearBuilt: get(['Year Built', 'yearBuilt', 'year_built']),
+    lender: get(['Lender', 'lender']),
+    equity: get(['Equity %', 'equity']),
+    estArv: get(['Est ARV ($)', 'estArv']),
+    score: parseInt(get(['Investment Score', 'score', 'Score', 'Priority'])) || 0,
+    urgentFlag: get(['Urgent Flag', 'urgentFlag', 'urgent_flag']),
+    ownerMailingAddr: get(['Owner Mailing Addr', 'ownerMailingAddr']),
+    daysOnMarket: get(['Days on Market', 'daysOnMarket']),
+    allSources: get(['All Sources', 'allSources']),
+  };
+}
+
+// Known column order for the All Listings sheet (matches build-first-run.js headers)
+const KNOWN_HEADERS = [
+  'ID', 'County', 'State', 'Category', 'Owner / Party', 'Address', 'City', 'ZIP',
+  'Parcel #', 'Case / File #', 'Sale Date', 'Current Bid ($)', 'Status',
+  'Last Day Upset', 'Source Name', 'Link', 'Map', 'Doc Type', 'Notes',
+  'Date Added', 'Last Verified', 'Beds', 'Baths', 'Sq Ft', 'Lot Size',
+  'Property Type', 'Year Built', 'Zoning', 'Flood Zone', 'Assessed Value ($)',
+  'Lender', 'Loan Amount ($)', 'Equity %', 'Est ARV ($)', 'HOA (Y/N)',
+  'Days on Market', 'All Sources', 'Owner Mailing Addr', 'Skip Trace (Y/N)',
+  'Investment Score', 'Urgent Flag'
+];
+
+async function loadData() {
+  // Try Google Sheet first
+  const csvUrl = buildCsvUrl(GOOGLE_SHEET_URL, ACTIVE_GID);
+  if (csvUrl) {
+    try {
+      const resp = await fetch(csvUrl);
+      if (resp.ok) {
+        const text = await resp.text();
+        // Parse without headers since xlsx upload merges header row with first data row
+        const parsed = Papa.parse(text, { header: false, skipEmptyLines: true });
+        if (parsed.data && parsed.data.length > 0) {
+          // Check if first row has merged headers (e.g., "ID MK-001", "County Mecklenburg")
+          const firstRow = parsed.data[0];
+          const isMerged = firstRow[0] && firstRow[0].includes(' ') && firstRow[0].startsWith('ID ');
+
+          if (isMerged) {
+            // Use known headers, skip the merged first row (it's header+data combined)
+            // But we still need the first record's data - extract it from merged cells
+            const firstRecord = {};
+            KNOWN_HEADERS.forEach((h, i) => {
+              if (i < firstRow.length) {
+                // Strip header name from merged value: "County Mecklenburg" → "Mecklenburg"
+                let val = firstRow[i] || '';
+                const headerPrefix = h + ' ';
+                if (val.startsWith(headerPrefix)) {
+                  val = val.substring(headerPrefix.length).trim();
+                } else if (val === h) {
+                  val = ''; // Header only, no data
+                }
+                firstRecord[h] = val;
+              }
+            });
+
+            // Map remaining rows using known headers
+            const dataRows = parsed.data.slice(1).map(row => {
+              const obj = {};
+              KNOWN_HEADERS.forEach((h, i) => { obj[h] = (i < row.length) ? row[i] : ''; });
+              return obj;
+            });
+
+            // Add the first record back
+            allData = [firstRecord, ...dataRows].map(normalizeRow).filter(r => r.address);
+          } else {
+            // Normal CSV with proper headers
+            const reparsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+            allData = reparsed.data.map(normalizeRow).filter(r => r.address);
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Google Sheet fetch failed:', e);
+    }
+  }
+
+  // Try local JSON
+  try {
+    const resp = await fetch(LOCAL_JSON_PATH);
+    if (resp.ok) {
+      const json = await resp.json();
+      const arr = Array.isArray(json) ? json : (json.data || json.results || json.leads || []);
+      if (arr.length > 0) {
+        allData = arr.map(normalizeRow).filter(r => r.address);
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn('Local JSON fetch failed:', e);
+  }
+
+  // Fallback to demo data
+  allData = DEMO_DATA;
+}
+
+// ============================================
+// UTILITIES
+// ============================================
+function parseDate(dateStr) {
+  if (!dateStr) return null;
+  let d;
+  // Handle M/D/YYYY format (from Google Sheets)
+  const slashMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    d = new Date(parseInt(slashMatch[3]), parseInt(slashMatch[1]) - 1, parseInt(slashMatch[2]));
+  } else {
+    // Try ISO format YYYY-MM-DD
+    d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
+  }
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function daysUntil(dateStr) {
+  const d = parseDate(dateStr);
+  if (!d) return Infinity;
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  return Math.ceil((d - now) / 86400000);
+}
+
+function formatPrice(val) {
+  if (!val) return '--';
+  const n = parseInt(String(val).replace(/[^0-9]/g, ''));
+  if (isNaN(n) || n === 0) return '--';
+  return '$' + n.toLocaleString();
+}
+
+function formatCategory(cat) {
+  if (!cat) return 'Other';
+  return cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getCategoryClass(cat) {
+  if (!cat) return 'pill-other';
+  const c = cat.toLowerCase();
+  if (c.includes('foreclosure')) return 'pill-foreclosure';
+  if (c.includes('tax')) return 'pill-tax';
+  if (c.includes('auction') || c.includes('sale') && !c.includes('tax')) return 'pill-auction';
+  if (c.includes('lis') || c.includes('pendens')) return 'pill-lis';
+  return 'pill-other';
+}
+
+function getScoreClass(score) {
+  if (score >= 6) return 'score-hot';
+  if (score >= 4) return 'score-warm';
+  return 'score-cool';
+}
+
+function getScoreBg(score) {
+  if (score >= 6) return '#EF4444';
+  if (score >= 4) return '#F59E0B';
+  return '#64748B';
+}
+
+function googleMapsUrl(item) {
+  const q = encodeURIComponent(`${item.address}, ${item.city}, ${item.state}`);
+  return `https://www.google.com/maps/search/?api=1&query=${q}`;
+}
+
+function showToast(msg) {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+function animateCountUp(el, target, duration = 800) {
+  const start = performance.now();
+  const from = 0;
+  function update(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(from + (target - from) * eased);
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+// ============================================
+// THEME
+// ============================================
+function initTheme() {
+  const saved = localStorage.getItem('pp_theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+  updateThemeIcon();
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('pp_theme', next);
+  updateThemeIcon();
+}
+
+function updateThemeIcon() {
+  const theme = document.documentElement.getAttribute('data-theme');
+  document.getElementById('themeIcon').innerHTML = theme === 'dark' ? '&#9789;' : '&#9788;';
+}
+
+// ============================================
+// NAVIGATION
+// ============================================
+function switchTab(tabId) {
+  document.querySelectorAll('.page').forEach(p => {
+    p.classList.remove('active', 'visible');
+  });
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const page = document.getElementById(tabId);
+  const nav = document.querySelector(`[data-tab="${tabId}"]`);
+  if (page) {
+    page.classList.add('active');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => page.classList.add('visible'));
+    });
+  }
+  if (nav) nav.classList.add('active');
+
+  activeTab = tabId;
+  localStorage.setItem('pp_activeTab', tabId);
+  window.scrollTo(0, 0);
+}
+
+// ============================================
+// FILTERING & SORTING
+// ============================================
+function applyFilters() {
+  filteredData = allData.filter(item => {
+    // County filter
+    if (activeCounty !== 'all' && item.county.toLowerCase() !== activeCounty.toLowerCase()) return false;
+
+    // Score filter
+    if (activeScore === 'hot' && item.score < 6) return false;
+    if (activeScore === 'warm' && (item.score < 4 || item.score > 5)) return false;
+    if (activeScore === 'cool' && item.score > 4) return false;
+
+    // Search
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const searchable = `${item.address} ${item.ownerName} ${item.city} ${item.county}`.toLowerCase();
+      if (!searchable.includes(q)) return false;
+    }
+
+    return true;
+  });
+
+  // Sort
+  filteredData.sort((a, b) => {
+    if (activeSort === 'score') return b.score - a.score;
+    if (activeSort === 'date') return daysUntil(a.saleDate) - daysUntil(b.saleDate);
+    if (activeSort === 'price') {
+      const pa = parseInt(String(a.salePrice).replace(/[^0-9]/g, '')) || 999999999;
+      const pb = parseInt(String(b.salePrice).replace(/[^0-9]/g, '')) || 999999999;
+      return pa - pb;
+    }
+    return 0;
+  });
+
+  // Update badge
+  const badge = document.getElementById('leadsBadge');
+  if (filteredData.length !== allData.length) {
+    badge.textContent = filteredData.length;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+
+  document.getElementById('leadCount').textContent = `${filteredData.length} lead${filteredData.length !== 1 ? 's' : ''}`;
+}
+
+// ============================================
+// RENDER: DASHBOARD
+// ============================================
+function renderDashboard() {
+  // Stats
+  const totalLeads = allData.length;
+  const hotLeads = allData.filter(d => d.score >= 6).length;
+  const counties = [...new Set(allData.map(d => d.county).filter(Boolean))].length;
+  const sources = [...new Set(allData.map(d => d.source).filter(Boolean))].length;
+
+  const statGrid = document.getElementById('statGrid');
+  statGrid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-icon blue">&#128202;</div>
+      <div class="stat-value" data-count="${totalLeads}">0</div>
+      <div class="stat-label">Total Leads</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon red">&#128293;</div>
+      <div class="stat-value" data-count="${hotLeads}">0</div>
+      <div class="stat-label">Hot Leads</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon green">&#127961;</div>
+      <div class="stat-value" data-count="${counties}">0</div>
+      <div class="stat-label">Counties</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon purple">&#128279;</div>
+      <div class="stat-value" data-count="${sources}">0</div>
+      <div class="stat-label">Sources</div>
+    </div>
+  `;
+
+  // Animate counts
+  statGrid.querySelectorAll('.stat-value').forEach(el => {
+    animateCountUp(el, parseInt(el.dataset.count));
+  });
+
+  // Donut chart — leads by county
+  const countyCounts = {};
+  allData.forEach(d => {
+    const c = d.county || 'Unknown';
+    countyCounts[c] = (countyCounts[c] || 0) + 1;
+  });
+
+  const countyColors = {
+    'Mecklenburg': '#3B82F6',
+    'Gaston': '#8B5CF6',
+    'Union': '#22C55E',
+    'York': '#F59E0B'
+  };
+  const defaultColors = ['#06B6D4', '#EC4899', '#F97316', '#14B8A6'];
+  let colorIdx = 0;
+
+  const countyEntries = Object.entries(countyCounts).sort((a, b) => b[1] - a[1]);
+  const total = allData.length;
+  const radius = 42;
+  const circumference = 2 * Math.PI * radius;
+
+  let offset = 0;
+  let segmentsHtml = '';
+  let legendHtml = '';
+
+  countyEntries.forEach(([county, count]) => {
+    const color = countyColors[county] || defaultColors[colorIdx++ % defaultColors.length];
+    const pct = count / total;
+    const dashLen = pct * circumference;
+    const dashGap = circumference - dashLen;
+
+    segmentsHtml += `<circle cx="60" cy="60" r="${radius}" fill="none" stroke="${color}" stroke-width="16"
+      stroke-dasharray="${dashLen} ${dashGap}" stroke-dashoffset="${-offset}"
+      style="transition: stroke-dasharray 0.6s ease ${colorIdx * 0.1}s;"/>`;
+    offset += dashLen;
+
+    legendHtml += `
+      <div class="legend-item">
+        <div class="legend-dot" style="background:${color}"></div>
+        <span class="legend-label">${county}</span>
+        <span class="legend-value">${count}</span>
+      </div>`;
+  });
+
+  document.getElementById('donutContainer').innerHTML = `
+    <div class="donut-wrapper">
+      <svg class="donut-svg" viewBox="0 0 120 120">
+        ${segmentsHtml}
+      </svg>
+      <div class="donut-center">
+        <div class="donut-center-value">${total}</div>
+        <div class="donut-center-label">Total</div>
+      </div>
+    </div>
+    <div class="donut-legend">${legendHtml}</div>`;
+
+  // Category breakdown
+  const catCounts = {};
+  allData.forEach(d => {
+    const c = formatCategory(d.category);
+    catCounts[c] = (catCounts[c] || 0) + 1;
+  });
+
+  const catColors = {
+    'Tax Foreclosure': '#EF4444', 'Foreclosure': '#DC2626', 'Tax Sale': '#F59E0B',
+    'Tax Delinquent': '#F97316', 'Lis Pendens': '#06B6D4', 'Auction': '#A855F7',
+    'Master Sale': '#8B5CF6', 'Probate': '#22C55E', 'County Sale': '#14B8A6'
+  };
+
+  const catEntries = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+  const maxCat = catEntries.length > 0 ? catEntries[0][1] : 1;
+
+  document.getElementById('categoryList').innerHTML = catEntries.map(([cat, count]) => {
+    const color = catColors[cat] || '#64748B';
+    const pct = (count / maxCat * 100).toFixed(0);
+    return `
+      <div class="category-row">
+        <span class="category-name" style="color:${color}">${cat}</span>
+        <div class="category-bar-track">
+          <div class="category-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <span class="category-count">${count}</span>
+      </div>`;
+  }).join('');
+
+  // Hot leads
+  const hotList = [...allData].sort((a, b) => b.score - a.score).slice(0, 5);
+  document.getElementById('hotLeadsList').innerHTML = hotList.map(item => `
+    <div class="hot-lead-item" onclick="goToLead('${item.address}')">
+      <div class="hot-lead-score" style="background:${getScoreBg(item.score)}">${item.score}</div>
+      <div class="hot-lead-info">
+        <div class="hot-lead-address">${item.address}</div>
+        <div class="hot-lead-meta">${item.county} &middot; ${formatCategory(item.category)}</div>
+      </div>
+      <span class="hot-lead-arrow">&#8250;</span>
+    </div>`).join('');
+}
+
+function goToLead(address) {
+  searchQuery = address;
+  document.getElementById('searchInput').value = address;
+  applyFilters();
+  renderLeads(true);
+  switchTab('pageLeads');
+}
+
+// ============================================
+// RENDER: LEADS
+// ============================================
+function renderLeads(reset = false) {
+  if (reset) displayedCount = 0;
+  const list = document.getElementById('leadsList');
+  const slice = filteredData.slice(displayedCount, displayedCount + PAGE_SIZE);
+
+  if (reset) list.innerHTML = '';
+
+  if (filteredData.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">&#128269;</div>
+        <h3>No leads found</h3>
+        <p>Try adjusting your filters or search query.</p>
+      </div>`;
+    document.getElementById('loadMore').style.display = 'none';
+    return;
+  }
+
+  slice.forEach(item => {
+    const days = daysUntil(item.saleDate);
+    let countdownHtml = '';
+    let countdownClass = 'countdown-ok';
+    if (days !== Infinity) {
+      if (days < 0) {
+        countdownHtml = 'Passed';
+        countdownClass = 'countdown-ok';
+      } else if (days <= 7) {
+        countdownHtml = `${days}d left`;
+        countdownClass = 'countdown-urgent';
+      } else if (days <= 30) {
+        countdownHtml = `${days}d left`;
+        countdownClass = 'countdown-soon';
+      } else {
+        countdownHtml = `${days}d left`;
+        countdownClass = 'countdown-ok';
+      }
+    }
+
+    const card = document.createElement('div');
+    card.className = 'property-card';
+    card.innerHTML = `
+      <div class="card-top">
+        <div>
+          <div class="card-address">${item.address}</div>
+          <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
+        </div>
+        <div class="score-badge ${getScoreClass(item.score)}" title="Score: ${item.score}/10">${item.score}</div>
+      </div>
+      <div class="card-pills">
+        <span class="pill ${getCategoryClass(item.category)}">${formatCategory(item.category)}</span>
+        <span class="pill pill-county">${item.county || 'Unknown'}</span>
+      </div>
+      <div class="card-details">
+        ${item.saleDate ? `<div class="detail-item">
+          <span class="detail-label">Sale Date</span>
+          <span class="detail-value">${(parseDate(item.saleDate) || new Date()).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}</span>
+          ${countdownHtml ? `<span class="detail-countdown ${countdownClass}">${countdownHtml}</span>` : ''}
+        </div>` : ''}
+        <div class="detail-item">
+          <span class="detail-label">Bid / Price</span>
+          <span class="detail-value">${formatPrice(item.salePrice)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Assessed</span>
+          <span class="detail-value">${formatPrice(item.taxValue)}</span>
+        </div>
+        ${item.propertyType ? `<div class="detail-item"><span class="detail-label">Type</span><span class="detail-value">${item.propertyType}</span></div>` : ''}
+        ${item.beds || item.baths ? `<div class="detail-item"><span class="detail-label">Bed/Bath</span><span class="detail-value">${item.beds || '-'}/${item.baths || '-'}</span></div>` : ''}
+        ${item.sqft ? `<div class="detail-item"><span class="detail-label">Sq Ft</span><span class="detail-value">${Number(item.sqft).toLocaleString()}</span></div>` : ''}
+        ${item.estArv ? `<div class="detail-item"><span class="detail-label">Est ARV</span><span class="detail-value">${formatPrice(item.estArv)}</span></div>` : ''}
+        ${item.equity ? `<div class="detail-item"><span class="detail-label">Equity</span><span class="detail-value">${item.equity}</span></div>` : ''}
+      </div>
+      ${item.notes ? `<div class="card-notes" style="padding:0 16px 8px;font-size:12px;color:var(--text-muted);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.notes}</div>` : ''}
+      ${item.source ? `<div style="padding:0 16px 8px;font-size:11px;color:var(--text-muted)">Source: ${item.source}</div>` : ''}
+      <div class="card-actions">
+        <button class="card-btn" onclick="window.open('${item.mapUrl || googleMapsUrl(item)}','_blank')" aria-label="Open in Google Maps">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Map
+        </button>
+        ${item.listingUrl ? `<button class="card-btn" onclick="window.open('${item.listingUrl}','_blank')" aria-label="Open listing">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Link
+        </button>` : ''}
+        <button class="card-btn" onclick="shareProperty(this, '${item.address}, ${item.city}')" aria-label="Share property">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Share
+        </button>
+      </div>`;
+    list.appendChild(card);
+  });
+
+  displayedCount += slice.length;
+
+  const loadMore = document.getElementById('loadMore');
+  loadMore.style.display = displayedCount < filteredData.length ? 'block' : 'none';
+}
+
+function shareProperty(btn, text) {
+  if (navigator.share) {
+    navigator.share({ title: 'Property Lead', text: text });
+  } else {
+    navigator.clipboard.writeText(text).then(() => showToast('Address copied to clipboard'));
+  }
+}
+
+// ============================================
+// RENDER: MAP LIST
+// ============================================
+function renderMapList() {
+  const list = document.getElementById('mapList');
+  list.innerHTML = allData.map(item => `
+    <a class="map-list-item" href="${googleMapsUrl(item)}" target="_blank" rel="noopener">
+      <div class="map-list-icon">&#128205;</div>
+      <div class="map-list-info">
+        <div class="map-list-addr">${item.address}</div>
+        <div class="map-list-detail">${item.city}, ${item.state} &middot; ${item.county}</div>
+      </div>
+      <span class="map-list-arrow">&#8250;</span>
+    </a>`).join('');
+}
+
+// ============================================
+// RENDER: DEADLINES
+// ============================================
+function renderDeadlines() {
+  const withDates = allData.filter(d => d.saleDate).sort((a, b) => daysUntil(a.saleDate) - daysUntil(b.saleDate));
+
+  if (withDates.length === 0) {
+    document.getElementById('deadlinesContent').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">&#128197;</div>
+        <h3>No upcoming deadlines</h3>
+        <p>Properties with sale dates will appear here.</p>
+      </div>`;
+    return;
+  }
+
+  // Group by month
+  const months = {};
+  withDates.forEach(item => {
+    const d = parseDate(item.saleDate);
+    if (!d) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    if (!months[key]) months[key] = { label, items: [] };
+    months[key].items.push(item);
+  });
+
+  let html = '';
+  Object.values(months).forEach(month => {
+    html += `
+      <div class="deadline-month">
+        <div class="deadline-month-label">&#128197; ${month.label}</div>
+        <div class="deadline-list">`;
+
+    month.items.forEach(item => {
+      const d = parseDate(item.saleDate);
+      if (!d) return;
+      const days = daysUntil(item.saleDate);
+      const monthShort = d.toLocaleDateString('en-US', { month: 'short' });
+      const dayNum = d.getDate();
+
+      let cdClass = 'ok';
+      let cdText = `${days}d`;
+      if (days < 0) { cdText = 'Passed'; cdClass = 'ok'; }
+      else if (days <= 7) cdClass = 'urgent';
+      else if (days <= 30) cdClass = 'soon';
+
+      html += `
+        <div class="deadline-item">
+          <div class="deadline-date-box">
+            ${days >= 0 && days <= 7 ? '<div class="pulse-dot"></div>' : ''}
+            <span class="deadline-date-month">${monthShort}</span>
+            <span class="deadline-date-day">${dayNum}</span>
+          </div>
+          <div class="deadline-info">
+            <div class="deadline-address">${item.address}</div>
+            <div class="deadline-meta">${item.county} &middot; ${formatCategory(item.category)} &middot; ${formatPrice(item.salePrice)}</div>
+          </div>
+          <span class="deadline-countdown ${cdClass}">${cdText}</span>
+        </div>`;
+    });
+
+    html += '</div></div>';
+  });
+
+  document.getElementById('deadlinesContent').innerHTML = html;
+}
+
+// ============================================
+// FILTER UI SETUP
+// ============================================
+function setupFilters() {
+  // County chips
+  const counties = ['all', ...new Set(allData.map(d => d.county).filter(Boolean))];
+  const countyContainer = document.getElementById('countyFilters');
+  countyContainer.innerHTML = counties.map(c => {
+    const label = c === 'all' ? 'All' : c;
+    const isActive = c.toLowerCase() === activeCounty.toLowerCase() ? ' active' : '';
+    return `<button class="chip${isActive}" data-county="${c}">${label}</button>`;
+  }).join('');
+
+  // Restore score filter
+  document.querySelectorAll('#scoreFilters .chip').forEach(ch => {
+    ch.classList.toggle('active', ch.dataset.score === activeScore);
+  });
+
+  // Restore sort
+  document.querySelectorAll('.sort-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.sort === activeSort);
+  });
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+function initEvents() {
+  // Theme toggle
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+  // Navigation
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  const searchClear = document.getElementById('searchClear');
+  let searchTimeout;
+  searchInput.addEventListener('input', () => {
+    searchClear.classList.toggle('show', searchInput.value.length > 0);
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      searchQuery = searchInput.value.trim();
+      applyFilters();
+      renderLeads(true);
+    }, 200);
+  });
+  searchClear.addEventListener('click', () => {
+    searchInput.value = '';
+    searchClear.classList.remove('show');
+    searchQuery = '';
+    applyFilters();
+    renderLeads(true);
+  });
+
+  // County filters (delegated)
+  document.getElementById('countyFilters').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#countyFilters .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeCounty = chip.dataset.county;
+    localStorage.setItem('pp_county', activeCounty);
+    applyFilters();
+    renderLeads(true);
+  });
+
+  // Score filters
+  document.getElementById('scoreFilters').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#scoreFilters .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeScore = chip.dataset.score;
+    localStorage.setItem('pp_score', activeScore);
+    applyFilters();
+    renderLeads(true);
+  });
+
+  // Sort buttons
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeSort = btn.dataset.sort;
+      localStorage.setItem('pp_sort', activeSort);
+      applyFilters();
+      renderLeads(true);
+    });
+  });
+
+  // Load more
+  document.getElementById('loadMoreBtn').addEventListener('click', () => renderLeads(false));
+
+  // Setup banner dismiss
+  document.getElementById('dismissBanner').addEventListener('click', () => {
+    document.getElementById('setupBanner').classList.add('hidden');
+    localStorage.setItem('pp_bannerDismissed', '1');
+  });
+
+  // Pull to refresh (simple touch gesture)
+  let touchStartY = 0;
+  let pulling = false;
+  document.addEventListener('touchstart', (e) => {
+    if (window.scrollY === 0) touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (touchStartY && e.touches[0].clientY - touchStartY > 80 && window.scrollY === 0) {
+      pulling = true;
+      document.getElementById('pullIndicator').classList.add('show');
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (pulling) {
+      pulling = false;
+      setTimeout(() => {
+        document.getElementById('pullIndicator').classList.remove('show');
+        init();
+        showToast('Data refreshed');
+      }, 800);
+    }
+    touchStartY = 0;
+  }, { passive: true });
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
+async function init() {
+  await loadData();
+
+  // Hide setup banner if configured or dismissed
+  if (GOOGLE_SHEET_URL || localStorage.getItem('pp_bannerDismissed') === '1') {
+    document.getElementById('setupBanner').classList.add('hidden');
+  }
+
+  setupFilters();
+  applyFilters();
+
+  renderDashboard();
+  renderLeads(true);
+  renderMapList();
+  renderDeadlines();
+
+  switchTab(activeTab);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  initEvents();
+  init();
+});
+</script>
+</body>
+</html>

@@ -1591,9 +1591,9 @@ body {
     <div class="filter-label">Score</div>
     <div class="filter-row" id="scoreFilters">
       <button class="chip active" data-score="all">All</button>
-      <button class="chip" data-score="hot">&#128293; Hot 6+</button>
-      <button class="chip" data-score="warm">&#127777; Warm 4-5</button>
-      <button class="chip" data-score="cool">Cool 1-4</button>
+      <button class="chip" data-score="hot">&#128293; Hot 4+</button>
+      <button class="chip" data-score="warm">&#127777; Warm 2-3</button>
+      <button class="chip" data-score="cool">Cool 0-1</button>
     </div>
   </div>
 
@@ -1752,23 +1752,23 @@ body {
 
       <div style="display:flex;flex-direction:column;gap:12px">
         <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(239,68,68,0.1)">
-          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#EF4444,#DC2626);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0">7</div>
+          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#EF4444,#DC2626);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0">5</div>
           <div>
-            <div style="font-weight:700;color:var(--red)">HOT — Score 6-10</div>
+            <div style="font-weight:700;color:var(--red)">HOT — Score 4+</div>
             <div style="font-size:12px;color:var(--text-secondary)">Tax foreclosures &amp; master sales with upcoming dates, low bids, strong data. Act immediately — research title, drive by, prepare bid.</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(245,158,11,0.1)">
           <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#F59E0B,#D97706);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0">4</div>
           <div>
-            <div style="font-weight:700;color:var(--orange)">WARM — Score 4-5</div>
+            <div style="font-weight:700;color:var(--orange)">WARM — Score 2-3</div>
             <div style="font-size:12px;color:var(--text-secondary)">Foreclosures &amp; auctions within 60 days. Good potential but needs more research. Monitor upset bid periods, check comparable sales.</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(100,116,139,0.1)">
           <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#64748B,#475569);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0">2</div>
           <div>
-            <div style="font-weight:700;color:var(--text-secondary)">COOL — Score 1-3</div>
+            <div style="font-weight:700;color:var(--text-secondary)">COOL — Score 0-1</div>
             <div style="font-size:12px;color:var(--text-secondary)">Lis pendens, tax delinquent, early-stage. Long-game plays with less competition. Skip trace owner, send direct mail offers.</div>
           </div>
         </div>
@@ -2011,7 +2011,7 @@ async function loadData() {
       const json = await resp.json();
       const arr = Array.isArray(json) ? json : (json.data || json.results || json.leads || []);
       if (arr.length > 0) {
-        allData = arr.map(normalizeRow).filter(r => r.address || r.ownerName);
+        allData = arr.map(normalizeRow).filter(r => r.address || r.ownerName).filter(isActiveListing);
         console.log(`Loaded ${allData.length} records from data.json`);
         return;
       }
@@ -2104,6 +2104,23 @@ function parseDate(dateStr) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+function isActiveListing(item) {
+  const status = (item.status || '').toLowerCase();
+  // Exclude sold, dismissed, cancelled, redeemed, expired
+  if (status.includes('sold') || status.includes('dismissed') || status.includes('cancelled') ||
+      status.includes('redeemed') || status.includes('expired') || status.includes('closed')) return false;
+  // Exclude passed sale dates
+  if (item.saleDate) {
+    const sd = parseDate(item.saleDate);
+    if (sd) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (sd < today) return false;
+    }
+  }
+  return true;
+}
+
 function daysUntil(dateStr) {
   const d = parseDate(dateStr);
   if (!d) return Infinity;
@@ -2135,14 +2152,14 @@ function getCategoryClass(cat) {
 }
 
 function getScoreClass(score) {
-  if (score >= 6) return 'score-hot';
-  if (score >= 4) return 'score-warm';
+  if (score >= 4) return 'score-hot';
+  if (score >= 2) return 'score-warm';
   return 'score-cool';
 }
 
 function getScoreBg(score) {
-  if (score >= 6) return '#EF4444';
-  if (score >= 4) return '#F59E0B';
+  if (score >= 4) return '#EF4444';
+  if (score >= 2) return '#F59E0B';
   return '#64748B';
 }
 
@@ -2247,9 +2264,9 @@ function applyFilters() {
     if (activeCategory !== 'all' && item.category !== activeCategory) return false;
 
     // Score filter
-    if (activeScore === 'hot' && item.score < 6) return false;
-    if (activeScore === 'warm' && (item.score < 4 || item.score > 5)) return false;
-    if (activeScore === 'cool' && item.score > 4) return false;
+    if (activeScore === 'hot' && item.score < 4) return false;
+    if (activeScore === 'warm' && (item.score < 2 || item.score > 3)) return false;
+    if (activeScore === 'cool' && item.score > 1) return false;
 
     // Search
     if (searchQuery) {
@@ -2291,7 +2308,7 @@ function applyFilters() {
 function renderDashboard() {
   // Stats
   const totalLeads = allData.length;
-  const hotLeads = allData.filter(d => d.score >= 6).length;
+  const hotLeads = allData.filter(d => d.score >= 4).length;
   const counties = [...new Set(allData.map(d => d.county).filter(Boolean))].length;
   const sources = [...new Set(allData.map(d => d.source).filter(Boolean))].length;
 

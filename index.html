@@ -1618,6 +1618,24 @@ body {
     <h2 class="section-title" style="margin-bottom:4px">&#128176; Tax Delinquent Hot Leads</h2>
     <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">Properties with unpaid taxes — sorted by assessed value. Contact owners before auction.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="taxCountyFilters"></div>
+    <div class="filter-section" style="margin-bottom:8px">
+      <div class="filter-label">Price Range</div>
+      <div class="filter-row" id="taxPriceFilters">
+        <button class="chip active" data-taxprice="all">All</button>
+        <button class="chip" data-taxprice="under50k">Under $50K</button>
+        <button class="chip" data-taxprice="50to100k">$50-100K</button>
+        <button class="chip" data-taxprice="100to200k">$100-200K</button>
+        <button class="chip" data-taxprice="over200k">$200K+</button>
+      </div>
+    </div>
+    <div class="filter-section" style="margin-bottom:8px">
+      <div class="filter-label">Sort By</div>
+      <div class="filter-row" id="taxSortBtns">
+        <button class="sort-btn active" data-taxsort="value">Value</button>
+        <button class="sort-btn" data-taxsort="price_low">Price Low</button>
+        <button class="sort-btn" data-taxsort="price_high">Price High</button>
+      </div>
+    </div>
     <div class="stat-grid" id="taxStats" style="margin-bottom:12px"></div>
   </div>
   <div id="taxDelinquentList"></div>
@@ -2638,6 +2656,8 @@ function shareProperty(btn, text) {
 let taxDisplayed = 0;
 let taxFilteredData = [];
 let activeTaxCounty = 'all';
+let activeTaxPrice = 'all';
+let activeTaxSort = 'value';
 const TAX_PAGE_SIZE = 20;
 
 function getTaxData() {
@@ -2645,12 +2665,25 @@ function getTaxData() {
   if (activeTaxCounty !== 'all') {
     data = data.filter(r => r.county.toLowerCase() === activeTaxCounty.toLowerCase());
   }
-  // Sort by assessed value descending — highest value = most opportunity
-  data.sort((a, b) => {
-    const va = parseFloat(a.taxValue) || 0;
-    const vb = parseFloat(b.taxValue) || 0;
-    return vb - va;
-  });
+  // Price filter
+  if (activeTaxPrice !== 'all') {
+    data = data.filter(r => {
+      const val = parseFloat(r.taxValue) || 0;
+      if (activeTaxPrice === 'under50k') return val > 0 && val < 50000;
+      if (activeTaxPrice === '50to100k') return val >= 50000 && val < 100000;
+      if (activeTaxPrice === '100to200k') return val >= 100000 && val < 200000;
+      if (activeTaxPrice === 'over200k') return val >= 200000;
+      return true;
+    });
+  }
+  // Sort
+  if (activeTaxSort === 'value') {
+    data.sort((a, b) => (parseFloat(b.taxValue) || 0) - (parseFloat(a.taxValue) || 0));
+  } else if (activeTaxSort === 'price_low') {
+    data.sort((a, b) => (parseFloat(a.taxValue) || 0) - (parseFloat(b.taxValue) || 0));
+  } else if (activeTaxSort === 'price_high') {
+    data.sort((a, b) => (parseFloat(b.taxValue) || 0) - (parseFloat(a.taxValue) || 0));
+  }
   return data;
 }
 
@@ -2749,11 +2782,11 @@ function renderTaxDelinquent(reset = false) {
       ${item.source ? `<div style="padding:0 16px 8px;font-size:11px;color:var(--text-muted)">Source: ${item.source}</div>` : ''}
       <div style="padding:0 16px 10px;font-size:12px;color:var(--accent);font-weight:500">Action: ${action}</div>
       <div class="card-actions">
-        <button class="card-btn" onclick="window.open('${item.mapUrl || googleMapsUrl(item)}','_blank')" aria-label="Open in Google Maps">
+        <button class="card-btn" onclick="window.open('${googleMapsUrl(item)}','_blank')" aria-label="Open in Google Maps">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           Map
         </button>
-        ${item.listingUrl ? `<button class="card-btn" onclick="window.open('${item.listingUrl}','_blank')" aria-label="Open listing">
+        ${(item.mapUrl || item.listingUrl) ? `<button class="card-btn" onclick="window.open('${item.mapUrl || item.listingUrl}','_blank')" aria-label="Open listing">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Link
         </button>` : ''}
@@ -2952,6 +2985,26 @@ function initEvents() {
     document.querySelectorAll('#taxCountyFilters .chip').forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
     activeTaxCounty = chip.dataset.taxcounty;
+    renderTaxDelinquent(true);
+  });
+
+  // Tax price filters
+  document.getElementById('taxPriceFilters').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#taxPriceFilters .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeTaxPrice = chip.dataset.taxprice;
+    renderTaxDelinquent(true);
+  });
+
+  // Tax sort buttons
+  document.getElementById('taxSortBtns').addEventListener('click', (e) => {
+    const btn = e.target.closest('.sort-btn');
+    if (!btn) return;
+    document.querySelectorAll('#taxSortBtns .sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeTaxSort = btn.dataset.taxsort;
     renderTaxDelinquent(true);
   });
 

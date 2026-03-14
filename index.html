@@ -1245,6 +1245,263 @@ body {
   .stat-grid { grid-template-columns: repeat(4, 1fr); }
   .stat-value { font-size: 24px; }
 }
+
+/* ============================================
+   NAV — 5-tab adjustments
+   ============================================ */
+.nav-icon { font-size: 20px; }
+.nav-label { font-size: 10px; }
+
+/* ============================================
+   STRATEGY TAB
+   ============================================ */
+.strategy-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.strategy-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: var(--transition);
+}
+
+.strategy-header {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.3;
+}
+
+.strategy-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+/* Tier badges */
+.strategy-tier {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.strategy-tier:last-child { margin-bottom: 0; }
+
+.tier-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.tier-1 { background: var(--red-bg); color: var(--red); }
+.tier-2 { background: var(--orange-bg); color: var(--orange); }
+.tier-3 { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+
+.tier-info strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tier-info p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* 70% Rule */
+.strategy-formula {
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.formula-line {
+  font-size: 15px;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+
+.strategy-example {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.example-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: var(--radius-xs);
+}
+
+.example-row.result {
+  background: var(--green-bg);
+  color: var(--green);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.strategy-tip {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+  padding-top: 4px;
+}
+
+/* Weekly schedule */
+.strategy-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schedule-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: var(--radius-xs);
+}
+
+.schedule-day {
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 60px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Lists */
+.strategy-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.strategy-list li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  padding-left: 20px;
+  position: relative;
+}
+
+.strategy-list li:last-child { border-bottom: none; }
+
+.strategy-list li::before {
+  content: '\2022';
+  color: var(--accent);
+  font-weight: 700;
+  position: absolute;
+  left: 4px;
+  top: 8px;
+}
+
+.strategy-list li em {
+  color: var(--text);
+  font-style: italic;
+}
+
+/* NC vs SC comparison */
+.strategy-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 480px) {
+  .strategy-comparison { grid-template-columns: 1fr; }
+}
+
+.compare-col h4 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.compare-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.compare-col ul li {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 4px 0 4px 14px;
+  position: relative;
+}
+
+.compare-col ul li::before {
+  content: '\25B8';
+  color: var(--green);
+  position: absolute;
+  left: 0;
+  top: 4px;
+}
+
+/* Exit strategies grid */
+.exit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 400px) {
+  .exit-grid { grid-template-columns: 1fr; }
+}
+
+.exit-item {
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+
+.exit-item h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.exit-item p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
 </style>
 </head>
 <body>
@@ -1315,6 +1572,22 @@ body {
   </div>
 
   <div class="filter-section">
+    <div class="filter-label">Category</div>
+    <div class="filter-row" id="categoryFilters" style="flex-wrap:wrap">
+      <button class="chip active" data-category="all">All</button>
+      <button class="chip" data-category="foreclosure">Foreclosure</button>
+      <button class="chip" data-category="tax_foreclosure">Tax Forecl.</button>
+      <button class="chip" data-category="tax_delinquent">Tax Delinq.</button>
+      <button class="chip" data-category="lis_pendens">Lis Pendens</button>
+      <button class="chip" data-category="auction">Auction</button>
+      <button class="chip" data-category="master_sale">Master Sale</button>
+      <button class="chip" data-category="tax_sale">Tax Sale</button>
+      <button class="chip" data-category="probate">Probate</button>
+      <button class="chip" data-category="county_sale">County Sale</button>
+    </div>
+  </div>
+
+  <div class="filter-section">
     <div class="filter-label">Score</div>
     <div class="filter-row" id="scoreFilters">
       <button class="chip active" data-score="all">All</button>
@@ -1340,14 +1613,17 @@ body {
 </section>
 
 <!-- ===================== MAP PAGE ===================== -->
-<section class="page" id="pageMap" aria-label="Map">
-  <div class="map-placeholder">
-    <div class="map-placeholder-icon">&#128506;</div>
-    <h3>Map View Coming Soon</h3>
-    <p>Tap any property card's map button to open directions in Google Maps.</p>
+<section class="page" id="pageTaxDelinquent" aria-label="Tax Delinquent">
+  <div style="padding:4px 0 12px">
+    <h2 class="section-title" style="margin-bottom:4px">&#128176; Tax Delinquent Hot Leads</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">Properties with unpaid taxes — sorted by assessed value. Contact owners before auction.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="taxCountyFilters"></div>
+    <div class="stat-grid" id="taxStats" style="margin-bottom:12px"></div>
   </div>
-  <h2 class="section-title" style="margin-top:8px;">&#128205; All Properties</h2>
-  <div class="map-list" id="mapList"></div>
+  <div id="taxDelinquentList"></div>
+  <div id="taxLoadMore" style="display:none;text-align:center;padding:16px">
+    <button class="chip active" id="taxLoadMoreBtn" style="padding:10px 24px;font-size:14px">Load More</button>
+  </div>
 </section>
 
 <!-- ===================== DEADLINES PAGE ===================== -->
@@ -1355,12 +1631,189 @@ body {
   <div id="deadlinesContent"></div>
 </section>
 
+<!-- ===================== STRATEGY PAGE ===================== -->
+<section class="page" id="pageStrategy" aria-label="Strategy">
+  <div class="strategy-content">
+
+    <div class="strategy-card" style="border-left: 4px solid #EF4444;">
+      <h3 class="strategy-header"><span class="strategy-icon">&#127919;</span> Priority Tiers — Where to Focus First</h3>
+      <div class="strategy-tier">
+        <div class="tier-badge tier-1">Tier 1</div>
+        <div class="tier-info">
+          <strong>Score 6+ — Tax foreclosures &amp; master sales with upcoming dates</strong>
+          <p>Action: Research title, drive by property, prepare bid. These are your highest-probability deals.</p>
+        </div>
+      </div>
+      <div class="strategy-tier">
+        <div class="tier-badge tier-2">Tier 2</div>
+        <div class="tier-info">
+          <strong>Score 4-5 — Foreclosures &amp; auctions within 60 days</strong>
+          <p>Action: Monitor upset bid periods, check comparable sales, line up financing if needed.</p>
+        </div>
+      </div>
+      <div class="strategy-tier">
+        <div class="tier-badge tier-3">Tier 3</div>
+        <div class="tier-info">
+          <strong>Score 1-3 — Lis pendens &amp; tax delinquent (early stage)</strong>
+          <p>Action: Skip trace owner, send direct mail offer. These are long-game plays with less competition.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-card" style="border-left: 4px solid #F59E0B;">
+      <h3 class="strategy-header"><span class="strategy-icon">&#129518;</span> The 70% Rule — Quick Deal Calculator</h3>
+      <div class="strategy-formula">
+        <div class="formula-line"><strong>Max Purchase = ARV &times; 70% &minus; Repair Costs</strong></div>
+      </div>
+      <div class="strategy-example">
+        <div class="example-row"><span>After Repair Value (ARV)</span><span>$200,000</span></div>
+        <div class="example-row"><span>&times; 70%</span><span>$140,000</span></div>
+        <div class="example-row"><span>&minus; Repair Costs</span><span>$30,000</span></div>
+        <div class="example-row result"><span>Max Bid</span><span>$110,000</span></div>
+      </div>
+      <p class="strategy-tip">If the bid exceeds this number, <strong>skip it</strong>. Discipline wins.</p>
+    </div>
+
+    <div class="strategy-card" style="border-left: 4px solid #3B82F6;">
+      <h3 class="strategy-header"><span class="strategy-icon">&#128197;</span> Weekly Action Plan</h3>
+      <div class="strategy-schedule">
+        <div class="schedule-row"><span class="schedule-day">Mon</span><span>Review new listings, score hot leads</span></div>
+        <div class="schedule-row"><span class="schedule-day">Tue-Wed</span><span>Drive properties, research titles at Register of Deeds</span></div>
+        <div class="schedule-row"><span class="schedule-day">Thu</span><span>Submit bids / attend auctions</span></div>
+        <div class="schedule-row"><span class="schedule-day">Fri</span><span>Follow up on pending deals, update tracker</span></div>
+      </div>
+    </div>
+
+    <div class="strategy-card" style="border-left: 4px solid #8B5CF6;">
+      <h3 class="strategy-header"><span class="strategy-icon">&#128269;</span> Skip Tracing Tips</h3>
+      <ul class="strategy-list">
+        <li>Use owner mailing address from tax records (often different from property address)</li>
+        <li>Check social media (Facebook, LinkedIn) for owner contact info</li>
+        <li>Send yellow letters to distressed owners — handwritten style gets 3-5% response rate</li>
+        <li>Best pitch: <em>"I can close in 2 weeks, cash, as-is — no repairs, no agents, no hassle"</em></li>
+        <li>Follow up 3 times minimum — most deals close on the 2nd or 3rd contact</li>
+      </ul>
+    </div>
+
+    <div class="strategy-card" style="border-left: 4px solid #22C55E;">
+      <h3 class="strategy-header"><span class="strategy-icon">&#9878;</span> NC vs SC Foreclosure Rules</h3>
+      <div class="strategy-comparison">
+        <div class="compare-col">
+          <h4>North Carolina</h4>
+          <ul>
+            <li><strong>10-day upset bid period</strong> after foreclosure sale</li>
+            <li>Highest bidder wins — must raise bid by 5% or $750 (whichever greater)</li>
+            <li>No redemption period after upset bid window closes</li>
+            <li>Tax foreclosures go through courts — check Meck, Gaston, Union clerks</li>
+          </ul>
+        </div>
+        <div class="compare-col">
+          <h4>South Carolina</h4>
+          <ul>
+            <li><strong>Master-in-Equity sales</strong>, typically 1st Monday monthly</li>
+            <li><strong>30-day redemption period</strong> — debtor can reclaim property</li>
+            <li>Surplus funds go to debtor (can be motivation to negotiate pre-sale)</li>
+            <li>York County — check Master-in-Equity office for schedules</li>
+          </ul>
+        </div>
+      </div>
+      <p class="strategy-tip"><strong>Both states:</strong> Always verify title before bidding. Check for IRS liens, HOA liens, and municipal code violations.</p>
+    </div>
+
+    <div class="strategy-card" style="border-left: 4px solid #06B6D4;">
+      <h3 class="strategy-header"><span class="strategy-icon">&#128176;</span> Exit Strategies</h3>
+      <div class="exit-grid">
+        <div class="exit-item">
+          <h4>Fix &amp; Flip</h4>
+          <p>Best for SFR under $200K ARV. Timeline: 3-6 months. Target 20%+ ROI after all costs.</p>
+        </div>
+        <div class="exit-item">
+          <h4>Buy &amp; Hold</h4>
+          <p>Best for rentable properties in good school districts. Target 1% rule (monthly rent = 1% of purchase).</p>
+        </div>
+        <div class="exit-item">
+          <h4>Wholesale</h4>
+          <p>Assign contract to another investor for $5-15K fee. Lowest risk, no rehab needed, fast turnaround.</p>
+        </div>
+        <div class="exit-item">
+          <h4>Subject-To</h4>
+          <p>Take over existing mortgage payments. Best when owner is behind but has equity. Creative financing play.</p>
+        </div>
+        <div class="exit-item">
+          <h4>Quick Flip (Buy &amp; Resell)</h4>
+          <p>Buy the property at auction or direct from owner, then resell immediately to another investor at a markup. No rehab — just acquire below market and flip the deal. Best for tax sales and foreclosures with clear title.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-card" style="border-left: 4px solid #3B82F6;">
+      <h3 class="strategy-header"><span class="strategy-icon">&#127912;</span> Score &amp; Color Legend</h3>
+      <p style="color:var(--text-secondary);margin-bottom:16px">Every property gets a score from 1-10 based on investment potential. Here's what the colors and numbers mean:</p>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(239,68,68,0.1)">
+          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#EF4444,#DC2626);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0">7</div>
+          <div>
+            <div style="font-weight:700;color:var(--red)">HOT — Score 6-10</div>
+            <div style="font-size:12px;color:var(--text-secondary)">Tax foreclosures &amp; master sales with upcoming dates, low bids, strong data. Act immediately — research title, drive by, prepare bid.</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(245,158,11,0.1)">
+          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#F59E0B,#D97706);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0">4</div>
+          <div>
+            <div style="font-weight:700;color:var(--orange)">WARM — Score 4-5</div>
+            <div style="font-size:12px;color:var(--text-secondary)">Foreclosures &amp; auctions within 60 days. Good potential but needs more research. Monitor upset bid periods, check comparable sales.</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(100,116,139,0.1)">
+          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#64748B,#475569);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0">2</div>
+          <div>
+            <div style="font-weight:700;color:var(--text-secondary)">COOL — Score 1-3</div>
+            <div style="font-size:12px;color:var(--text-secondary)">Lis pendens, tax delinquent, early-stage. Long-game plays with less competition. Skip trace owner, send direct mail offers.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding:12px;border-radius:10px;background:var(--bg-input);border:1px solid var(--border)">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">How Scores Are Calculated</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px;color:var(--text-secondary)">
+          <span style="color:var(--accent);font-weight:600">+3</span><span>Sale date within 30 days</span>
+          <span style="color:var(--accent);font-weight:600">+2</span><span>Sale date within 60 days</span>
+          <span style="color:var(--accent);font-weight:600">+2</span><span>Tax foreclosure or master sale</span>
+          <span style="color:var(--accent);font-weight:600">+1</span><span>Foreclosure or auction</span>
+          <span style="color:var(--accent);font-weight:600">+1</span><span>Has sale date at all</span>
+          <span style="color:var(--accent);font-weight:600">+1</span><span>Has a street address</span>
+          <span style="color:var(--accent);font-weight:600">+1</span><span>Bid under $100K</span>
+          <span style="color:var(--accent);font-weight:600">+1</span><span>Single-family home</span>
+          <span style="color:var(--accent);font-weight:600">+1</span><span>Has tax/assessed value</span>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding:12px;border-radius:10px;background:var(--bg-input);border:1px solid var(--border)">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">Category Colors</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(239,68,68,0.12);color:#EF4444">FORECLOSURE</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(168,85,247,0.12);color:#A855F7">TAX FORECLOSURE</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(59,130,246,0.12);color:#3B82F6">LIS PENDENS</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(245,158,11,0.12);color:#F59E0B">AUCTION</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(34,197,94,0.12);color:#22C55E">TAX DELINQUENT</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(236,72,153,0.12);color:#EC4899">MASTER SALE</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(6,182,212,0.12);color:#06B6D4">TAX SALE</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(139,92,246,0.12);color:#8B5CF6">PROBATE</span>
+          <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(20,184,166,0.12);color:#14B8A6">COUNTY SALE</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
 <!-- ===================== BOTTOM NAV ===================== -->
 <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
   <div class="nav-items">
     <button class="nav-item active" data-tab="pageDashboard" aria-label="Dashboard">
       <span class="nav-icon">&#127968;</span>
-      <span class="nav-label">Dashboard</span>
+      <span class="nav-label">Home</span>
     </button>
     <button class="nav-item" data-tab="pageLeads" aria-label="Leads">
       <span class="nav-icon">
@@ -1369,13 +1822,17 @@ body {
       </span>
       <span class="nav-label">Leads</span>
     </button>
-    <button class="nav-item" data-tab="pageMap" aria-label="Map">
-      <span class="nav-icon">&#128506;</span>
-      <span class="nav-label">Map</span>
+    <button class="nav-item" data-tab="pageTaxDelinquent" aria-label="Tax">
+      <span class="nav-icon">&#128176;</span>
+      <span class="nav-label">Tax</span>
     </button>
     <button class="nav-item" data-tab="pageDeadlines" aria-label="Deadlines">
       <span class="nav-icon">&#128197;</span>
-      <span class="nav-label">Deadlines</span>
+      <span class="nav-label">Dates</span>
+    </button>
+    <button class="nav-item" data-tab="pageStrategy" aria-label="Strategy">
+      <span class="nav-icon">&#128188;</span>
+      <span class="nav-label">Strategy</span>
     </button>
   </div>
 </nav>
@@ -1439,6 +1896,7 @@ let displayedCount = 0;
 const PAGE_SIZE = 20;
 let activeTab = localStorage.getItem('pp_activeTab') || 'pageDashboard';
 let activeCounty = localStorage.getItem('pp_county') || 'all';
+let activeCategory = localStorage.getItem('pp_category') || 'all';
 let activeScore = localStorage.getItem('pp_score') || 'all';
 let activeSort = localStorage.getItem('pp_sort') || 'score';
 let searchQuery = '';
@@ -1546,7 +2004,23 @@ const KNOWN_HEADERS = [
 ];
 
 async function loadData() {
-  // Try Google Sheet first
+  // Priority 1: Try data.json (pre-built by build-app-data.js with real URLs)
+  try {
+    const resp = await fetch('data.json');
+    if (resp.ok) {
+      const json = await resp.json();
+      const arr = Array.isArray(json) ? json : (json.data || json.results || json.leads || []);
+      if (arr.length > 0) {
+        allData = arr.map(normalizeRow).filter(r => r.address || r.ownerName);
+        console.log(`Loaded ${allData.length} records from data.json`);
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn('data.json fetch failed:', e);
+  }
+
+  // Priority 2: Try Google Sheet CSV
   const csvUrl = buildCsvUrl(GOOGLE_SHEET_URL, ACTIVE_GID);
   if (csvUrl) {
     try {
@@ -1561,34 +2035,28 @@ async function loadData() {
           const isMerged = firstRow[0] && firstRow[0].includes(' ') && firstRow[0].startsWith('ID ');
 
           if (isMerged) {
-            // Use known headers, skip the merged first row (it's header+data combined)
-            // But we still need the first record's data - extract it from merged cells
             const firstRecord = {};
             KNOWN_HEADERS.forEach((h, i) => {
               if (i < firstRow.length) {
-                // Strip header name from merged value: "County Mecklenburg" → "Mecklenburg"
                 let val = firstRow[i] || '';
                 const headerPrefix = h + ' ';
                 if (val.startsWith(headerPrefix)) {
                   val = val.substring(headerPrefix.length).trim();
                 } else if (val === h) {
-                  val = ''; // Header only, no data
+                  val = '';
                 }
                 firstRecord[h] = val;
               }
             });
 
-            // Map remaining rows using known headers
             const dataRows = parsed.data.slice(1).map(row => {
               const obj = {};
               KNOWN_HEADERS.forEach((h, i) => { obj[h] = (i < row.length) ? row[i] : ''; });
               return obj;
             });
 
-            // Add the first record back
             allData = [firstRecord, ...dataRows].map(normalizeRow).filter(r => r.address);
           } else {
-            // Normal CSV with proper headers
             const reparsed = Papa.parse(text, { header: true, skipEmptyLines: true });
             allData = reparsed.data.map(normalizeRow).filter(r => r.address);
           }
@@ -1600,7 +2068,7 @@ async function loadData() {
     }
   }
 
-  // Try local JSON
+  // Priority 3: Try local JSON
   try {
     const resp = await fetch(LOCAL_JSON_PATH);
     if (resp.ok) {
@@ -1676,6 +2144,21 @@ function getScoreBg(score) {
   if (score >= 6) return '#EF4444';
   if (score >= 4) return '#F59E0B';
   return '#64748B';
+}
+
+function getActionStep(item) {
+  const cat = (item.category || '').toLowerCase();
+  const days = daysUntil(item.saleDate);
+  if (cat.includes('tax_foreclosure')) return days <= 14 ? 'Prepare bid — research title now' : 'Research title, drive by property';
+  if (cat.includes('master_sale')) return days <= 14 ? 'Attend sale — have cashier check ready' : 'Check comparable sales, set max bid';
+  if (cat.includes('foreclosure')) return days <= 30 ? 'Monitor upset bid period' : 'Track status, check tax records';
+  if (cat.includes('auction')) return days <= 14 ? 'Register for auction, set max bid' : 'Research ARV, estimate repairs';
+  if (cat.includes('lis_pendens')) return 'Skip trace owner — send direct mail offer';
+  if (cat.includes('tax_delinquent')) return 'Contact owner — offer to buy before auction';
+  if (cat.includes('probate')) return 'Contact estate attorney or heirs';
+  if (cat.includes('tax_sale')) return 'Verify redemption period, check liens';
+  if (cat.includes('county_sale')) return 'Check surplus property details';
+  return 'Review listing details';
 }
 
 function googleMapsUrl(item) {
@@ -1759,6 +2242,9 @@ function applyFilters() {
   filteredData = allData.filter(item => {
     // County filter
     if (activeCounty !== 'all' && item.county.toLowerCase() !== activeCounty.toLowerCase()) return false;
+
+    // Category filter
+    if (activeCategory !== 'all' && item.category !== activeCategory) return false;
 
     // Score filter
     if (activeScore === 'hot' && item.score < 6) return false;
@@ -1923,17 +2409,23 @@ function renderDashboard() {
       </div>`;
   }).join('');
 
-  // Hot leads
+  // Hot leads with action steps
   const hotList = [...allData].sort((a, b) => b.score - a.score).slice(0, 5);
-  document.getElementById('hotLeadsList').innerHTML = hotList.map(item => `
+  document.getElementById('hotLeadsList').innerHTML = hotList.map(item => {
+    const action = getActionStep(item);
+    const days = daysUntil(item.saleDate);
+    const daysText = days !== Infinity && days > 0 ? `${days}d left` : '';
+    return `
     <div class="hot-lead-item" onclick="goToLead('${item.address}')">
       <div class="hot-lead-score" style="background:${getScoreBg(item.score)}">${item.score}</div>
       <div class="hot-lead-info">
         <div class="hot-lead-address">${item.address}</div>
-        <div class="hot-lead-meta">${item.county} &middot; ${formatCategory(item.category)}</div>
+        <div class="hot-lead-meta">${item.county} &middot; ${formatCategory(item.category)}${daysText ? ' &middot; <span style="color:var(--red);font-weight:600">' + daysText + '</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--accent);margin-top:2px;font-weight:500">${action}</div>
       </div>
       <span class="hot-lead-arrow">&#8250;</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function goToLead(address) {
@@ -2021,6 +2513,7 @@ function renderLeads(reset = false) {
       </div>
       ${item.notes ? `<div class="card-notes" style="padding:0 16px 8px;font-size:12px;color:var(--text-muted);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.notes}</div>` : ''}
       ${item.source ? `<div style="padding:0 16px 8px;font-size:11px;color:var(--text-muted)">Source: ${item.source}</div>` : ''}
+      <div style="padding:0 16px 10px;font-size:12px;color:var(--accent);font-weight:500">Next: ${getActionStep(item)}</div>
       <div class="card-actions">
         <button class="card-btn" onclick="window.open('${item.mapUrl || googleMapsUrl(item)}','_blank')" aria-label="Open in Google Maps">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -2053,19 +2546,140 @@ function shareProperty(btn, text) {
 }
 
 // ============================================
-// RENDER: MAP LIST
+// RENDER: TAX DELINQUENT
 // ============================================
-function renderMapList() {
-  const list = document.getElementById('mapList');
-  list.innerHTML = allData.map(item => `
-    <a class="map-list-item" href="${googleMapsUrl(item)}" target="_blank" rel="noopener">
-      <div class="map-list-icon">&#128205;</div>
-      <div class="map-list-info">
-        <div class="map-list-addr">${item.address}</div>
-        <div class="map-list-detail">${item.city}, ${item.state} &middot; ${item.county}</div>
+let taxDisplayed = 0;
+let taxFilteredData = [];
+let activeTaxCounty = 'all';
+const TAX_PAGE_SIZE = 20;
+
+function getTaxData() {
+  let data = allData.filter(r => r.category === 'tax_delinquent');
+  if (activeTaxCounty !== 'all') {
+    data = data.filter(r => r.county.toLowerCase() === activeTaxCounty.toLowerCase());
+  }
+  // Sort by assessed value descending — highest value = most opportunity
+  data.sort((a, b) => {
+    const va = parseFloat(a.taxValue) || 0;
+    const vb = parseFloat(b.taxValue) || 0;
+    return vb - va;
+  });
+  return data;
+}
+
+function renderTaxStats() {
+  const allTax = allData.filter(r => r.category === 'tax_delinquent');
+  const filtered = taxFilteredData;
+  const totalValue = filtered.reduce((s, r) => s + (parseFloat(r.taxValue) || 0), 0);
+  const highValue = filtered.filter(r => (parseFloat(r.taxValue) || 0) >= 100000).length;
+  const avgValue = filtered.length > 0 ? totalValue / filtered.length : 0;
+
+  document.getElementById('taxStats').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--orange)">${filtered.length.toLocaleString()}</div>
+      <div class="stat-label">Properties</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--green)">$${(totalValue/1000000).toFixed(1)}M</div>
+      <div class="stat-label">Total Assessed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--red)">${highValue}</div>
+      <div class="stat-label">Over $100K</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--cyan)">$${Math.round(avgValue/1000)}K</div>
+      <div class="stat-label">Avg Value</div>
+    </div>`;
+}
+
+function renderTaxFilters() {
+  const allTax = allData.filter(r => r.category === 'tax_delinquent');
+  const counties = ['all', ...new Set(allTax.map(r => r.county).filter(Boolean))];
+  document.getElementById('taxCountyFilters').innerHTML = counties.map(c => {
+    const label = c === 'all' ? 'All Counties' : c;
+    const isActive = c.toLowerCase() === activeTaxCounty.toLowerCase() ? ' active' : '';
+    return `<button class="chip${isActive}" data-taxcounty="${c}">${label}</button>`;
+  }).join('');
+}
+
+function renderTaxDelinquent(reset = false) {
+  if (reset) taxDisplayed = 0;
+  taxFilteredData = getTaxData();
+  renderTaxStats();
+
+  const list = document.getElementById('taxDelinquentList');
+  const slice = taxFilteredData.slice(taxDisplayed, taxDisplayed + TAX_PAGE_SIZE);
+
+  if (reset) list.innerHTML = '';
+
+  if (taxFilteredData.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">&#128176;</div>
+        <h3>No tax delinquent properties</h3>
+        <p>No properties match the current filter.</p>
+      </div>`;
+    document.getElementById('taxLoadMore').style.display = 'none';
+    return;
+  }
+
+  slice.forEach((item, i) => {
+    const rank = taxDisplayed + i + 1;
+    const taxVal = parseFloat(item.taxValue) || 0;
+    const isHighValue = taxVal >= 100000;
+    const action = getActionStep(item);
+
+    const card = document.createElement('div');
+    card.className = 'property-card';
+    card.innerHTML = `
+      <div class="card-top">
+        <div>
+          <div class="card-address">${item.address}</div>
+          <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">#${rank}</div>
+          <div class="score-badge ${isHighValue ? 'score-hot' : 'score-warm'}" title="Assessed Value">${isHighValue ? 'HIGH' : 'MED'}</div>
+        </div>
       </div>
-      <span class="map-list-arrow">&#8250;</span>
-    </a>`).join('');
+      <div class="card-pills">
+        <span class="pill" style="background:var(--orange-bg);color:var(--orange)">Tax Delinquent</span>
+        <span class="pill pill-county">${item.county || 'Unknown'}</span>
+        ${item.propertyType ? `<span class="pill" style="background:var(--purple-bg);color:var(--purple)">${item.propertyType}</span>` : ''}
+      </div>
+      <div class="card-details">
+        <div class="detail-item">
+          <span class="detail-label">Assessed Value</span>
+          <span class="detail-value" style="color:${isHighValue ? 'var(--green)' : 'var(--text)'};font-weight:${isHighValue ? '700' : '500'}">${formatPrice(item.taxValue)}</span>
+        </div>
+        ${item.parcelId ? `<div class="detail-item"><span class="detail-label">Parcel ID</span><span class="detail-value">${item.parcelId}</span></div>` : ''}
+        ${item.beds || item.baths ? `<div class="detail-item"><span class="detail-label">Bed/Bath</span><span class="detail-value">${item.beds || '-'}/${item.baths || '-'}</span></div>` : ''}
+        ${item.sqft ? `<div class="detail-item"><span class="detail-label">Sq Ft</span><span class="detail-value">${Number(item.sqft).toLocaleString()}</span></div>` : ''}
+        ${item.yearBuilt ? `<div class="detail-item"><span class="detail-label">Year Built</span><span class="detail-value">${item.yearBuilt}</span></div>` : ''}
+      </div>
+      ${item.notes ? `<div style="padding:0 16px 8px;font-size:12px;color:var(--text-muted);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.notes}</div>` : ''}
+      ${item.source ? `<div style="padding:0 16px 8px;font-size:11px;color:var(--text-muted)">Source: ${item.source}</div>` : ''}
+      <div style="padding:0 16px 10px;font-size:12px;color:var(--accent);font-weight:500">Action: ${action}</div>
+      <div class="card-actions">
+        <button class="card-btn" onclick="window.open('${item.mapUrl || googleMapsUrl(item)}','_blank')" aria-label="Open in Google Maps">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Map
+        </button>
+        ${item.listingUrl ? `<button class="card-btn" onclick="window.open('${item.listingUrl}','_blank')" aria-label="Open listing">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Link
+        </button>` : ''}
+        <button class="card-btn" onclick="shareProperty(this, '${item.address}, ${item.city}')" aria-label="Share property">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Share
+        </button>
+      </div>`;
+    list.appendChild(card);
+  });
+
+  taxDisplayed += slice.length;
+  document.getElementById('taxLoadMore').style.display = taxDisplayed < taxFilteredData.length ? 'block' : 'none';
 }
 
 // ============================================
@@ -2205,6 +2819,18 @@ function initEvents() {
     renderLeads(true);
   });
 
+  // Category filters
+  document.getElementById('categoryFilters').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#categoryFilters .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeCategory = chip.dataset.category;
+    localStorage.setItem('pp_category', activeCategory);
+    applyFilters();
+    renderLeads(true);
+  });
+
   // Score filters
   document.getElementById('scoreFilters').addEventListener('click', (e) => {
     const chip = e.target.closest('.chip');
@@ -2231,6 +2857,19 @@ function initEvents() {
 
   // Load more
   document.getElementById('loadMoreBtn').addEventListener('click', () => renderLeads(false));
+
+  // Tax delinquent county filters
+  document.getElementById('taxCountyFilters').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#taxCountyFilters .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeTaxCounty = chip.dataset.taxcounty;
+    renderTaxDelinquent(true);
+  });
+
+  // Tax load more
+  document.getElementById('taxLoadMoreBtn').addEventListener('click', () => renderTaxDelinquent(false));
 
   // Setup banner dismiss
   document.getElementById('dismissBanner').addEventListener('click', () => {
@@ -2281,7 +2920,8 @@ async function init() {
 
   renderDashboard();
   renderLeads(true);
-  renderMapList();
+  renderTaxFilters();
+  renderTaxDelinquent(true);
   renderDeadlines();
 
   switchTab(activeTab);

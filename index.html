@@ -1629,6 +1629,16 @@ body {
       </div>
     </div>
     <div class="filter-section" style="margin-bottom:8px">
+      <div class="filter-label">Property Type</div>
+      <div class="filter-row" id="taxTypeFilters">
+        <button class="chip active" data-taxtype="all">All</button>
+        <button class="chip" data-taxtype="residential">Residential</button>
+        <button class="chip" data-taxtype="vacant">Vacant/Land</button>
+        <button class="chip" data-taxtype="commercial">Commercial</button>
+        <button class="chip" data-taxtype="industrial">Industrial</button>
+      </div>
+    </div>
+    <div class="filter-section" style="margin-bottom:8px">
       <div class="filter-label">Sort By</div>
       <div class="filter-row" id="taxSortBtns">
         <button class="sort-btn active" data-taxsort="value">Value</button>
@@ -2657,6 +2667,7 @@ let taxDisplayed = 0;
 let taxFilteredData = [];
 let activeTaxCounty = 'all';
 let activeTaxPrice = 'all';
+let activeTaxType = 'all';
 let activeTaxSort = 'value';
 const TAX_PAGE_SIZE = 20;
 
@@ -2673,6 +2684,17 @@ function getTaxData() {
       if (activeTaxPrice === '50to100k') return val >= 50000 && val < 100000;
       if (activeTaxPrice === '100to200k') return val >= 100000 && val < 200000;
       if (activeTaxPrice === 'over200k') return val >= 200000;
+      return true;
+    });
+  }
+  // Property type filter
+  if (activeTaxType !== 'all') {
+    data = data.filter(r => {
+      const pt = (r.propertyType || '').toLowerCase();
+      if (activeTaxType === 'residential') return pt.includes('residential') || pt.includes('family') || pt.includes('modular') || pt.includes('mobile home');
+      if (activeTaxType === 'vacant') return pt.includes('vacant') || pt.includes('land');
+      if (activeTaxType === 'commercial') return pt.includes('commercial') || pt.includes('retail') || pt.includes('office') || pt.includes('mixed use') || pt.includes('restaurant') || pt.includes('hotel') || pt.includes('store') || pt.includes('beauty') || pt.includes('daycare') || pt.includes('parking') || pt.includes('fast food') || pt.includes('conv store') || pt.includes('entertainment') || pt.includes('self storage');
+      if (activeTaxType === 'industrial') return pt.includes('industrial') || pt.includes('warehouse') || pt.includes('distribution');
       return true;
     });
   }
@@ -2786,7 +2808,7 @@ function renderTaxDelinquent(reset = false) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           Map
         </button>
-        ${(item.mapUrl || item.listingUrl) ? `<button class="card-btn" onclick="window.open('${item.mapUrl || item.listingUrl}','_blank')" aria-label="Open listing">
+        ${item.listingUrl ? `<button class="card-btn" onclick="window.open('${item.listingUrl}','_blank')" aria-label="Open listing">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Link
         </button>` : ''}
@@ -2995,6 +3017,16 @@ function initEvents() {
     document.querySelectorAll('#taxPriceFilters .chip').forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
     activeTaxPrice = chip.dataset.taxprice;
+    renderTaxDelinquent(true);
+  });
+
+  // Tax property type filters
+  document.getElementById('taxTypeFilters').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#taxTypeFilters .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeTaxType = chip.dataset.taxtype;
     renderTaxDelinquent(true);
   });
 

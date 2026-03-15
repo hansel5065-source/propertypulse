@@ -2281,6 +2281,11 @@ function googleMapsUrl(item) {
   return `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
 
+function propertySearchUrl(item) {
+  const q = encodeURIComponent(`${item.address} ${item.city} ${item.state} ${item.county} county property records`);
+  return `https://www.google.com/search?q=${q}`;
+}
+
 function showToast(msg) {
   const c = document.getElementById('toastContainer');
   const t = document.createElement('div');
@@ -2808,10 +2813,10 @@ function renderTaxDelinquent(reset = false) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           Map
         </button>
-        ${(item.mapUrl || item.listingUrl) ? `<button class="card-btn" onclick="window.open('${item.mapUrl || item.listingUrl}','_blank')" aria-label="Open listing">
+        <button class="card-btn" onclick="window.open('${propertySearchUrl(item)}','_blank')" aria-label="Search property records">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          Link
-        </button>` : ''}
+          Lookup
+        </button>
         <button class="card-btn" onclick="shareProperty(this, '${item.address}, ${item.city}')" aria-label="Share property">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
           Share

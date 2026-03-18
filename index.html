@@ -932,6 +932,82 @@ body {
 .card-btn:active { transform: scale(0.95); background: var(--bg-card-hover); }
 .card-btn svg { width: 16px; height: 16px; }
 
+.btn-analyze { color: var(--accent); }
+.btn-analyze:hover { background: var(--accent-glow); }
+.btn-analyze.btn-analyzing { color: var(--orange); cursor: wait; }
+.btn-analyze.btn-analyzed { color: var(--green); }
+.btn-pdf { color: var(--green); }
+.btn-pdf:hover { background: var(--green-bg); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Top Deals section */
+.top-deals-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.top-deal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.top-deal-card:hover { background: var(--bg-card-hover); }
+.top-deal-rank {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-muted);
+  min-width: 28px;
+  text-align: center;
+}
+.top-deal-body { flex: 1; min-width: 0; }
+.top-deal-address {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.top-deal-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.top-deal-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.top-deal-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.top-deal-btn-analyze {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+.top-deal-btn-pdf {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
 /* Load more */
 .load-more {
   text-align: center;
@@ -1554,6 +1630,9 @@ body {
 
   <h2 class="section-title">&#128293; Hot Leads This Week</h2>
   <div class="hot-leads-list" id="hotLeadsList"></div>
+
+  <h2 class="section-title" style="margin-top:20px">&#127941; Top Deals — Ready to Analyze</h2>
+  <div class="top-deals-grid" id="topDealsGrid"></div>
 </section>
 
 <!-- ===================== LEADS PAGE ===================== -->
@@ -1639,9 +1718,19 @@ body {
       </div>
     </div>
     <div class="filter-section" style="margin-bottom:8px">
+      <div class="filter-label">Foreclosure Risk</div>
+      <div class="filter-row" id="taxRiskFilters">
+        <button class="chip active" data-taxrisk="all">All</button>
+        <button class="chip" data-taxrisk="critical" style="color:var(--red)">&#128308; Critical 8+</button>
+        <button class="chip" data-taxrisk="high" style="color:var(--orange)">&#9888; High 6+</button>
+        <button class="chip" data-taxrisk="medium" style="color:var(--cyan)">Medium 4-5</button>
+      </div>
+    </div>
+    <div class="filter-section" style="margin-bottom:8px">
       <div class="filter-label">Sort By</div>
       <div class="filter-row" id="taxSortBtns">
-        <button class="sort-btn active" data-taxsort="value">Value</button>
+        <button class="sort-btn active" data-taxsort="risk">&#128293; Risk</button>
+        <button class="sort-btn" data-taxsort="value">Value</button>
         <button class="sort-btn" data-taxsort="price_low">Price Low</button>
         <button class="sort-btn" data-taxsort="price_high">Price High</button>
       </div>
@@ -1831,6 +1920,71 @@ body {
           <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(20,184,166,0.12);color:#14B8A6">COUNTY SALE</span>
         </div>
       </div>
+    </div>
+
+    <div class="strategy-card" style="border-left: 4px solid #EF4444;">
+      <h3 class="strategy-header"><span class="strategy-icon">&#127988;</span> Foreclosure Risk Scoring — Tax Delinquent</h3>
+      <p style="color:var(--text-secondary);margin-bottom:14px;font-size:13px">Tax delinquent properties are ranked 1–10 by their probability of entering foreclosure. Each card shows exactly <em>why</em> it scored that way. Higher score = less likely to be cured = better opportunity to buy before it hits public auction.</p>
+
+      <div style="display:grid;gap:8px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:8px 12px;font-size:12px;padding:10px;background:var(--bg-input);border-radius:10px;border:1px solid var(--border)">
+          <span style="font-weight:700;color:var(--text);font-size:13px">Factor</span>
+          <span style="font-weight:700;color:var(--text);font-size:13px">Points</span>
+          <span style="font-weight:700;color:var(--text);font-size:13px">Why it matters</span>
+
+          <span style="color:var(--text-secondary)">Mobile / modular home</span>
+          <span style="color:var(--red);font-weight:700">+4</span>
+          <span style="color:var(--text-secondary)">Depreciates fast, hard to refinance, owners often walk away</span>
+
+          <span style="color:var(--text-secondary)">Residential / SFR</span>
+          <span style="color:var(--orange);font-weight:700">+3</span>
+          <span style="color:var(--text-secondary)">Most foreclosures in NC are SFR — high velocity market</span>
+
+          <span style="color:var(--text-secondary)">Value under $60K</span>
+          <span style="color:var(--red);font-weight:700">+3</span>
+          <span style="color:var(--text-secondary)">Owner has little equity to protect — less incentive to pay taxes</span>
+
+          <span style="color:var(--text-secondary)">Value $60K–$120K</span>
+          <span style="color:var(--orange);font-weight:700">+2</span>
+          <span style="color:var(--text-secondary)">Low equity relative to typical cure costs</span>
+
+          <span style="color:var(--text-secondary)">Active foreclosure source</span>
+          <span style="color:var(--red);font-weight:700">+2</span>
+          <span style="color:var(--text-secondary)">Already listed by Kania, Hutchens, RBCWB — process has started</span>
+
+          <span style="color:var(--text-secondary)">Built before 1960</span>
+          <span style="color:var(--orange);font-weight:700">+2</span>
+          <span style="color:var(--text-secondary)">Deferred maintenance likely, harder to sell conventionally</span>
+
+          <span style="color:var(--text-secondary)">Built 1960–1979</span>
+          <span style="color:var(--cyan);font-weight:700">+1</span>
+          <span style="color:var(--text-secondary)">Aging systems — roof, HVAC, electrical — reduce owner motivation</span>
+
+          <span style="color:var(--text-secondary)">No owner on record</span>
+          <span style="color:var(--cyan);font-weight:700">+1</span>
+          <span style="color:var(--text-secondary)">Absentee or walkaway owner — less likely to respond to cure notices</span>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:130px;padding:10px 12px;border-radius:10px;background:var(--red-bg);border:1px solid var(--red)">
+            <div style="font-weight:800;color:var(--red);font-size:13px">CRITICAL 8–10</div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:3px">Multiple high-risk factors. Move fast — contact owner directly before it hits auction. Best wholesale/flip candidates.</div>
+          </div>
+          <div style="flex:1;min-width:130px;padding:10px 12px;border-radius:10px;background:var(--orange-bg);border:1px solid var(--orange)">
+            <div style="font-weight:800;color:var(--orange);font-size:13px">HIGH 6–7</div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:3px">Likely heading to foreclosure. Send direct mail, drive by, run title search. Good pipeline candidates.</div>
+          </div>
+          <div style="flex:1;min-width:130px;padding:10px 12px;border-radius:10px;background:var(--cyan-bg);border:1px solid var(--cyan)">
+            <div style="font-weight:800;color:var(--cyan);font-size:13px">MEDIUM 4–5</div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:3px">Watch list. Owner may still cure. Monitor quarterly — if delinquency continues it will escalate.</div>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="document.querySelector('[data-tab=pageTaxDelinquent]').click(); setTimeout(() => { const c = document.querySelector('.chip[data-risk=critical]'); if(c) c.click(); }, 300);"
+        style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#EF4444,#DC2626);color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        <span>&#128269;</span> Analyze Critical Leads Now
+      </button>
     </div>
 
   </div>
@@ -2069,7 +2223,22 @@ const KNOWN_HEADERS = [
 ];
 
 async function loadData() {
-  // Priority 1: Try data.json (pre-built by build-app-data.js with real URLs)
+  // Priority 0: Try live API (server.js with real-time job status)
+  try {
+    const resp = await fetch('/api/leads', { signal: AbortSignal.timeout(3000) });
+    if (resp.ok) {
+      const arr = await resp.json();
+      if (Array.isArray(arr) && arr.length > 0) {
+        allData = arr.filter(r => r.address || r.ownerName).filter(isActiveListing);
+        console.log(`Loaded ${allData.length} records from API`);
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn('API not available, falling back to static data.json');
+  }
+
+  // Priority 1: Try data.json (pre-built by pipeline.py)
   try {
     const resp = await fetch('data.json');
     if (resp.ok) {
@@ -2411,7 +2580,7 @@ function applyFilters() {
 function renderDashboard() {
   // Stats
   const totalLeads = allData.length;
-  const hotLeads = allData.filter(d => d.score >= 4).length;
+  const hotLeads = allData.filter(d => d.score >= 7).length;
   const counties = [...new Set(allData.map(d => d.county).filter(Boolean))].length;
   const sources = [...new Set(allData.map(d => d.source).filter(Boolean))].length;
 
@@ -2546,6 +2715,35 @@ function renderDashboard() {
       <span class="hot-lead-arrow">&#8250;</span>
     </div>`;
   }).join('');
+
+  // Top Deals — score 7+ sorted by score, show analyze/pdf buttons
+  const topDeals = [...allData].filter(d => d.score >= 7).sort((a, b) => b.score - a.score).slice(0, 10);
+  const topGrid = document.getElementById('topDealsGrid');
+  if (!topGrid) return;
+  if (topDeals.length === 0) {
+    topGrid.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:8px 0">No high-score leads yet. Run the pipeline to refresh data.</div>`;
+    return;
+  }
+  topGrid.innerHTML = topDeals.map((item, i) => {
+    const isPdfReady = item.analyzed || item.jobStatus === 'done';
+    const isRunning = item.jobStatus === 'running';
+    return `
+    <div class="top-deal-card">
+      <div class="top-deal-rank" style="color:${i < 3 ? 'var(--red)' : 'var(--text-muted)'}">${item.score}</div>
+      <div class="top-deal-body" onclick="goToLead('${item.address.replace(/'/g,"\\'")}')">
+        <div class="top-deal-address">${item.address}</div>
+        <div class="top-deal-meta">${item.county} &middot; ${formatCategory(item.category)} &middot; ${item.taxValue || 'No value'}</div>
+      </div>
+      <div class="top-deal-actions">
+        ${isPdfReady
+          ? `<button class="top-deal-btn top-deal-btn-pdf" onclick="viewPdf('${item.pdfSlug}')">&#128196; PDF</button>`
+          : isRunning
+          ? `<button class="top-deal-btn top-deal-btn-analyze" disabled><span class="spinner"></span></button>`
+          : `<button class="top-deal-btn top-deal-btn-analyze" id="td-${item.pdfSlug}" onclick="analyzeProperty(this,'${item.address.replace(/'/g,"\\'")}','${item.pdfSlug}')">Analyze</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function goToLead(address) {
@@ -2554,6 +2752,85 @@ function goToLead(address) {
   applyFilters();
   renderLeads(true);
   switchTab('pageLeads');
+}
+
+// ============================================
+// ANALYZE + PDF
+// ============================================
+async function analyzeProperty(btn, address, slug) {
+  if (!btn) return;
+  // Show spinner
+  btn.disabled = true;
+  btn.classList.add('btn-analyzing');
+  btn.innerHTML = '<span class="spinner"></span> Running...';
+
+  try {
+    const resp = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    });
+    const data = await resp.json();
+    if (data.status === 'done' || data.pdfReady) {
+      markAnalyzed(btn, slug);
+    } else if (data.status === 'running') {
+      pollStatus(btn, slug, address);
+    } else {
+      btn.innerHTML = 'Error';
+      btn.style.color = 'var(--red)';
+      btn.disabled = false;
+    }
+  } catch (e) {
+    showToast('Server not running — start with: node server.js');
+    btn.innerHTML = 'Analyze';
+    btn.disabled = false;
+    btn.classList.remove('btn-analyzing');
+  }
+}
+
+function pollStatus(btn, slug, address) {
+  const interval = setInterval(async () => {
+    try {
+      const resp = await fetch(`/api/status/${slug}`);
+      const data = await resp.json();
+      if (data.status === 'done' || data.pdfReady) {
+        clearInterval(interval);
+        markAnalyzed(btn, slug);
+      } else if (data.status === 'error') {
+        clearInterval(interval);
+        btn.innerHTML = 'Failed';
+        btn.style.color = 'var(--red)';
+        btn.disabled = false;
+        showToast('Analysis failed — check terminal for errors');
+      }
+    } catch (e) {
+      clearInterval(interval);
+    }
+  }, 5000); // poll every 5 seconds
+}
+
+function markAnalyzed(btn, slug) {
+  btn.classList.remove('btn-analyzing');
+  btn.classList.add('btn-analyzed');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"/></svg> Analyzed`;
+  btn.disabled = false;
+  btn.onclick = null;
+
+  // Insert PDF button next to analyze button
+  const existing = btn.parentElement.querySelector('.btn-pdf');
+  if (!existing) {
+    const pdfBtn = document.createElement('button');
+    pdfBtn.className = 'card-btn btn-pdf';
+    pdfBtn.setAttribute('aria-label', 'View analysis PDF');
+    pdfBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> PDF`;
+    pdfBtn.onclick = () => viewPdf(slug);
+    btn.insertAdjacentElement('afterend', pdfBtn);
+  }
+  showToast('Analysis complete! Tap PDF to view.');
+}
+
+function viewPdf(slug) {
+  window.open(`/api/pdf/${encodeURIComponent(slug)}`, '_blank');
 }
 
 // ============================================
@@ -2643,6 +2920,18 @@ function renderLeads(reset = false) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Link
         </button>` : ''}
+        <button class="card-btn btn-analyze ${item.analyzed || item.jobStatus === 'done' ? 'btn-analyzed' : ''}"
+          id="analyze-${item.pdfSlug}"
+          onclick="analyzeProperty(this, '${item.address}', '${item.pdfSlug}')"
+          aria-label="Run investment analysis">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          ${item.analyzed || item.jobStatus === 'done' ? 'Analyzed' : 'Analyze'}
+        </button>
+        ${(item.analyzed || item.jobStatus === 'done') ? `
+        <button class="card-btn btn-pdf" onclick="viewPdf('${item.pdfSlug}')" aria-label="View analysis PDF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          PDF
+        </button>` : ''}
         <button class="card-btn" onclick="shareProperty(this, '${item.address}, ${item.city}')" aria-label="Share property">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
           Share
@@ -2673,8 +2962,79 @@ let taxFilteredData = [];
 let activeTaxCounty = 'all';
 let activeTaxPrice = 'all';
 let activeTaxType = 'all';
-let activeTaxSort = 'value';
+let activeTaxSort = 'risk';   // default to risk ranking
+let activeTaxRisk = 'all';
 const TAX_PAGE_SIZE = 20;
+
+// ── Foreclosure Risk Scorer (1–10) ───────────────────────────────────────────
+function forecastRisk(item) {
+  let risk = 0;
+  const val = parseFloat(String(item.taxValue || '').replace(/[$,]/g, '')) || 0;
+  const pt  = (item.propertyType || '').toLowerCase();
+  const src = item.sourceKey || '';
+  const yr  = parseInt(item.yearBuilt) || 2000;
+
+  // Property type — mobile home & single family foreclose most
+  if (pt.includes('mobile') || pt.includes('modular'))         risk += 4;
+  else if (pt.includes('residential') || pt.includes('family')) risk += 3;
+  else if (pt.includes('vacant') || pt.includes('land'))        risk += 1;
+  else if (pt)                                                   risk += 1;
+
+  // Low assessed value = owner has less equity to protect
+  if (val > 0 && val < 60000)        risk += 3;
+  else if (val >= 60000 && val < 120000) risk += 2;
+  else if (val >= 120000 && val < 200000) risk += 1;
+
+  // Older homes = more deferred maintenance, harder to sell
+  if (yr < 1960)      risk += 2;
+  else if (yr < 1980) risk += 1;
+
+  // No owner name on record = likely absentee/walkaway
+  if (!item.ownerName) risk += 1;
+
+  // Active foreclosure sources = already in the process
+  const hotSources = ['kania_mecklenburg','kania_all','rbcwb_tax_foreclosures',
+                      'hutchens_nc','hutchens_sc','union_foreclosure_schedule_pdf',
+                      'gaston_tax_foreclosure'];
+  if (hotSources.includes(src)) risk += 2;
+
+  return Math.min(10, Math.max(1, risk));
+}
+
+function riskLabel(score) {
+  if (score >= 8) return { label: 'CRITICAL', color: 'var(--red)',    bg: 'var(--red-bg)' };
+  if (score >= 6) return { label: 'HIGH',     color: 'var(--orange)', bg: 'var(--orange-bg)' };
+  if (score >= 4) return { label: 'MEDIUM',   color: 'var(--cyan)',   bg: 'var(--cyan-bg)' };
+  return            { label: 'LOW',      color: 'var(--text-muted)', bg: 'var(--border)' };
+}
+
+function forecastRiskReasons(item) {
+  const reasons = [];
+  const val = parseFloat(String(item.taxValue || '').replace(/[$,]/g, '')) || 0;
+  const pt  = (item.propertyType || '').toLowerCase();
+  const src = item.sourceKey || '';
+  const yr  = parseInt(item.yearBuilt) || 2000;
+
+  if (pt.includes('mobile') || pt.includes('modular'))          reasons.push({ text: 'Mobile home', points: '+4' });
+  else if (pt.includes('residential') || pt.includes('family')) reasons.push({ text: 'Residential SFR', points: '+3' });
+  else if (pt.includes('vacant') || pt.includes('land'))        reasons.push({ text: 'Vacant land', points: '+1' });
+
+  if (val > 0 && val < 60000)             reasons.push({ text: 'Value under $60K', points: '+3' });
+  else if (val >= 60000 && val < 120000)  reasons.push({ text: 'Value $60K–$120K', points: '+2' });
+  else if (val >= 120000 && val < 200000) reasons.push({ text: 'Value $120K–$200K', points: '+1' });
+
+  if (yr < 1960)      reasons.push({ text: `Built ${yr} (pre-1960)`, points: '+2' });
+  else if (yr < 1980) reasons.push({ text: `Built ${yr} (pre-1980)`, points: '+1' });
+
+  if (!item.ownerName) reasons.push({ text: 'No owner on record', points: '+1' });
+
+  const hotSources = ['kania_mecklenburg','kania_all','rbcwb_tax_foreclosures',
+                      'hutchens_nc','hutchens_sc','union_foreclosure_schedule_pdf',
+                      'gaston_tax_foreclosure'];
+  if (hotSources.includes(src)) reasons.push({ text: 'Active foreclosure source', points: '+2' });
+
+  return reasons;
+}
 
 function getTaxData() {
   let data = allData.filter(r => r.category === 'tax_delinquent');
@@ -2703,8 +3063,21 @@ function getTaxData() {
       return true;
     });
   }
+  // Risk filter
+  if (activeTaxRisk !== 'all') {
+    data = data.filter(r => {
+      const rs = forecastRisk(r);
+      if (activeTaxRisk === 'critical') return rs >= 8;
+      if (activeTaxRisk === 'high')     return rs >= 6;
+      if (activeTaxRisk === 'medium')   return rs >= 4 && rs < 6;
+      return true;
+    });
+  }
+
   // Sort
-  if (activeTaxSort === 'value') {
+  if (activeTaxSort === 'risk') {
+    data.sort((a, b) => forecastRisk(b) - forecastRisk(a));
+  } else if (activeTaxSort === 'value') {
     data.sort((a, b) => (parseFloat(b.taxValue) || 0) - (parseFloat(a.taxValue) || 0));
   } else if (activeTaxSort === 'price_low') {
     data.sort((a, b) => (parseFloat(a.taxValue) || 0) - (parseFloat(b.taxValue) || 0));
@@ -2715,10 +3088,10 @@ function getTaxData() {
 }
 
 function renderTaxStats() {
-  const allTax = allData.filter(r => r.category === 'tax_delinquent');
   const filtered = taxFilteredData;
-  const totalValue = filtered.reduce((s, r) => s + (parseFloat(r.taxValue) || 0), 0);
-  const highValue = filtered.filter(r => (parseFloat(r.taxValue) || 0) >= 100000).length;
+  const totalValue = filtered.reduce((s, r) => s + (parseFloat(String(r.taxValue||'').replace(/[$,]/g,'')) || 0), 0);
+  const critical = filtered.filter(r => forecastRisk(r) >= 8).length;
+  const high     = filtered.filter(r => forecastRisk(r) >= 6).length;
   const avgValue = filtered.length > 0 ? totalValue / filtered.length : 0;
 
   document.getElementById('taxStats').innerHTML = `
@@ -2727,12 +3100,12 @@ function renderTaxStats() {
       <div class="stat-label">Properties</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value" style="color:var(--green)">$${(totalValue/1000000).toFixed(1)}M</div>
-      <div class="stat-label">Total Assessed</div>
+      <div class="stat-value" style="color:var(--red)">${critical}</div>
+      <div class="stat-label">Critical Risk</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value" style="color:var(--red)">${highValue}</div>
-      <div class="stat-label">Over $100K</div>
+      <div class="stat-value" style="color:var(--orange)">${high}</div>
+      <div class="stat-label">High Risk+</div>
     </div>
     <div class="stat-card">
       <div class="stat-value" style="color:var(--cyan)">$${Math.round(avgValue/1000)}K</div>
@@ -2773,9 +3146,17 @@ function renderTaxDelinquent(reset = false) {
 
   slice.forEach((item, i) => {
     const rank = taxDisplayed + i + 1;
-    const taxVal = parseFloat(item.taxValue) || 0;
-    const isHighValue = taxVal >= 100000;
+    const taxVal = parseFloat(String(item.taxValue || '').replace(/[$,]/g, '')) || 0;
+    const rs = forecastRisk(item);
+    const rl = riskLabel(rs);
     const action = getActionStep(item);
+    const reasons = forecastRiskReasons(item);
+    const reasonsHtml = reasons.length ? `
+      <div style="padding:6px 16px 2px;display:flex;flex-wrap:wrap;gap:5px">
+        ${reasons.map(r => `<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 7px;border-radius:5px;background:${rl.bg};color:${rl.color}">
+          <span style="font-weight:700">${r.points}</span> ${r.text}
+        </span>`).join('')}
+      </div>` : '';
 
     const card = document.createElement('div');
     card.className = 'property-card';
@@ -2785,11 +3166,12 @@ function renderTaxDelinquent(reset = false) {
           <div class="card-address">${item.address}</div>
           <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
         </div>
-        <div style="text-align:right">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">#${rank}</div>
-          <div class="score-badge ${isHighValue ? 'score-hot' : 'score-warm'}" title="Assessed Value">${isHighValue ? 'HIGH' : 'MED'}</div>
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <div style="font-size:11px;color:var(--text-muted)">#${rank}</div>
+          <div style="background:${rl.bg};color:${rl.color};font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap">${rl.label} ${rs}/10</div>
         </div>
       </div>
+      ${reasonsHtml}
       <div class="card-pills">
         <span class="pill" style="background:var(--orange-bg);color:var(--orange)">Tax Delinquent</span>
         <span class="pill pill-county">${item.county || 'Unknown'}</span>
@@ -2798,7 +3180,7 @@ function renderTaxDelinquent(reset = false) {
       <div class="card-details">
         <div class="detail-item">
           <span class="detail-label">Assessed Value</span>
-          <span class="detail-value" style="color:${isHighValue ? 'var(--green)' : 'var(--text)'};font-weight:${isHighValue ? '700' : '500'}">${formatPrice(item.taxValue)}</span>
+          <span class="detail-value" style="color:${taxVal >= 100000 ? 'var(--green)' : 'var(--text)'};font-weight:${taxVal >= 100000 ? '700' : '500'}">${formatPrice(item.taxValue)}</span>
         </div>
         ${item.parcelId ? `<div class="detail-item"><span class="detail-label">Parcel ID</span><span class="detail-value">${item.parcelId}</span></div>` : ''}
         ${item.beds || item.baths ? `<div class="detail-item"><span class="detail-label">Bed/Bath</span><span class="detail-value">${item.beds || '-'}/${item.baths || '-'}</span></div>` : ''}
@@ -3046,6 +3428,16 @@ function initEvents() {
     document.querySelectorAll('#taxSortBtns .sort-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeTaxSort = btn.dataset.taxsort;
+    renderTaxDelinquent(true);
+  });
+
+  // Tax risk filters
+  document.getElementById('taxRiskFilters').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#taxRiskFilters .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeTaxRisk = chip.dataset.taxrisk;
     renderTaxDelinquent(true);
   });
 

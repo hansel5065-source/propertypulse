@@ -2757,8 +2757,17 @@ function goToLead(address) {
 // ============================================
 // ANALYZE + PDF
 // ============================================
+const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
 async function analyzeProperty(btn, address, slug) {
   if (!btn) return;
+
+  // GitHub Pages / static mode — no backend available
+  if (!IS_LOCAL) {
+    showToast('Analysis runs locally only. Open localhost:8080 to use this feature.');
+    return;
+  }
+
   // Show spinner
   btn.disabled = true;
   btn.classList.add('btn-analyzing');

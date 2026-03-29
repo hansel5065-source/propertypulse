@@ -4086,8 +4086,8 @@ function initMap() {
 async function init() {
   await loadData();
 
-  // Hide setup banner if configured or dismissed
-  if (GOOGLE_SHEET_URL || localStorage.getItem('pp_bannerDismissed') === '1') {
+  // Hide setup banner if configured, dismissed, or data loaded from data.json
+  if (GOOGLE_SHEET_URL || localStorage.getItem('pp_bannerDismissed') === '1' || allData.length > 0) {
     document.getElementById('setupBanner').classList.add('hidden');
   }
 

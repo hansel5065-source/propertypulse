@@ -3478,20 +3478,17 @@ function yearsOwnedNum(str) {
 }
 
 function renderEquity() {
-  // Build pool: records that have estimatedEquity OR where we can compute spread (taxValue - loanBalance)
+  // Build pool: use estimatedEquity, then taxValue-salePrice spread, then taxValue alone
   let pool = allData.map(item => {
     let eq = parseEquity(item.estimatedEquity);
-    // If no equity field, compute from taxValue - loanBalance
-    if (!eq) {
-      const tv = parseEquity(item.taxValue);
-      const lb = parseEquity(item.loanBalance);
-      if (tv > 0 && lb > 0) eq = tv - lb;
-      else if (tv > 0 && item.salePrice) {
-        const sp = parseEquity(item.salePrice);
-        if (sp > 0) eq = tv - sp;
-      }
-    }
-    return { ...item, _eq: eq };
+    const tv = parseEquity(item.taxValue);
+    const lb = parseEquity(item.loanBalance);
+    const sp = parseEquity(item.salePrice);
+    let mode = 'estimated';
+    if (!eq && tv > 0 && lb > 0) { eq = tv - lb; mode = 'spread'; }
+    else if (!eq && tv > 0 && sp > 0) { eq = tv - sp; mode = 'spread'; }
+    else if (!eq && tv > 0) { eq = tv; mode = 'assessed'; }
+    return { ...item, _eq: eq, _eqMode: mode };
   }).filter(i => i._eq > 0);
 
   // Apply filters
@@ -3520,8 +3517,8 @@ function renderEquity() {
     summary.textContent = '';
     list.innerHTML = `<div class="empty-state">
       <div class="empty-state-icon">&#128176;</div>
-      <h3>No equity data yet</h3>
-      <p>Run the PropWire scraper — equity figures come from PropWire API responses.</p>
+      <h3>No assessed value data available</h3>
+      <p>Equity is estimated from assessed value. Run the weekly scraper to refresh data.</p>
     </div>`;
     return;
   }
@@ -3551,7 +3548,7 @@ function renderEquity() {
         </div>
         <div style="text-align:right">
           <div style="font-size:20px;font-weight:700;color:var(--green)">$${Math.round(item._eq).toLocaleString()}</div>
-          <div style="font-size:11px;color:var(--text-muted)">equity</div>
+          <div style="font-size:10px;color:var(--text-muted)">${item._eqMode === 'spread' ? 'value − bid' : item._eqMode === 'assessed' ? 'assessed value' : 'est. equity'}</div>
         </div>
       </div>
 

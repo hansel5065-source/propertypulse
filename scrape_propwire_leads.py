@@ -134,36 +134,46 @@ async def apply_county_filter(page, county_config: dict) -> bool:
         print("  [!] PropWire is blocking this session. Try logging in first.")
         return False
 
-    # Type in search box
-    search_input = page.locator('input[placeholder*="Address"], input[placeholder*="city"]').first
-    if await search_input.count() == 0:
-        print(f"  [!] Search box not found")
+    # Click visible search input by mouse coordinates (works with React)
+    rect = await page.evaluate('''() => {
+        const inputs = document.querySelectorAll('input[name=search]');
+        for (const inp of inputs) {
+            const r = inp.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) return {x: r.x + r.width/2, y: r.y + r.height/2};
+        }
+        return null;
+    }''')
+    if not rect:
+        print(f"  [!] No visible search input found")
         return False
 
-    await search_input.click()
-    await asyncio.sleep(0.5)
-    await search_input.triple_click()
-    await search_input.fill(search_term)
+    await page.mouse.click(rect['x'], rect['y'])
+    await asyncio.sleep(0.4)
+    await page.keyboard.press('Control+a')
+    await page.keyboard.press('Delete')
+    await asyncio.sleep(0.2)
+    await page.keyboard.type(county, delay=80)
     await asyncio.sleep(3)
 
-    # Click matching suggestion
-    suggestions = page.locator('[class*="suggestion"], [class*="result"], [role="option"]')
-    count = await suggestions.count()
-    found = False
-    for i in range(min(count, 8)):
-        item = suggestions.nth(i)
-        try:
-            text = (await item.inner_text()).strip()
-            if county.lower() in text.lower():
-                await item.click()
-                found = True
-                await asyncio.sleep(3)
-                break
-        except Exception:
-            continue
-
-    if not found:
-        await search_input.press("Enter")
+    # Click the matching county suggestion
+    clicked = await page.evaluate(f'''() => {{
+        const county = "{county}".toLowerCase();
+        const all = document.querySelectorAll("li, [role=option], [class*=suggestion]");
+        for (const el of all) {{
+            const r = el.getBoundingClientRect();
+            const t = (el.innerText||"").toLowerCase();
+            if (r.width > 0 && r.height > 0 && t.includes(county)) {{
+                el.click();
+                return el.innerText.slice(0,60);
+            }}
+        }}
+        return null;
+    }}''')
+    if clicked:
+        print(f"  Selected: {clicked.strip()}")
+        await asyncio.sleep(3)
+    else:
+        await page.keyboard.press("Enter")
         await asyncio.sleep(3)
 
     return True
@@ -559,11 +569,11 @@ async def main():
             await asyncio.sleep(2)  # Polite pause between counties
 
     deduped = dedupe(all_records)
-    print(f"\n[PropWire] {len(all_records)} raw → {len(deduped)} after dedup")
+    print(f"\n[PropWire] {len(all_records)} raw -> {len(deduped)} after dedup")
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(deduped, f, indent=2, ensure_ascii=False)
-    print(f"[PropWire] Saved → {output_path}")
+    print(f"[PropWire] Saved -> {output_path}")
 
     by_county = {}
     by_type = {}

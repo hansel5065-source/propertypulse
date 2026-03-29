@@ -137,6 +137,18 @@ def score_record(r):
     return max(1, min(10, total))
 
 
+def _calc_years_owned(purchase_date_str: str) -> str:
+    """Return '12 yrs' style string, or '' if date unavailable."""
+    d = parse_date(purchase_date_str)
+    if not d:
+        return ""
+    years = (TODAY - d).days / 365.25
+    if years < 1:
+        months = int(years * 12)
+        return f"{months} mo" if months > 0 else ""
+    return f"{years:.0f} yrs"
+
+
 def normalize(r):
     """Convert Apify record to PropertyPulse app format."""
     address = (r.get("address") or "").strip().title()
@@ -204,6 +216,10 @@ def normalize(r):
         "propertyType": r.get("propertyType") or "",
         "notes": r.get("description") or "",
         "lienTypes": r.get("lienTypes") or [],
+        "estimatedEquity": r.get("estimatedEquity") or "",
+        "loanBalance": r.get("loanBalance") or "",
+        "yearsOwned": _calc_years_owned(r.get("purchaseDate") or ""),
+        "purchaseDate": r.get("purchaseDate") or "",
         "score": score_record(r),
         "status": r.get("status") or "Active",
         "analyzed": False,

@@ -308,6 +308,16 @@ async def scrape_county(page, county_key: str, config: dict, lead_types: list) -
     return records
 
 
+def _fmt_money(val) -> str:
+    """Format a raw money value to '$X,XXX' string, or '' if empty."""
+    if not val:
+        return ""
+    try:
+        return f"${float(str(val).replace(',', '').replace('$', '')):,.0f}"
+    except (ValueError, TypeError):
+        return str(val)
+
+
 def _normalize_api_record(item: dict, county: str, state: str) -> dict | None:
     """Convert a PropWire API record to pipeline format."""
     if not isinstance(item, dict):
@@ -361,6 +371,21 @@ def _normalize_api_record(item: dict, county: str, state: str) -> dict | None:
         except (ValueError, TypeError):
             est_value = str(est_value)
 
+    # Ownership / financial fields
+    purchase_date = str(
+        item.get("purchase_date") or item.get("last_sale_date") or
+        item.get("acquisition_date") or item.get("sale_date") or ""
+    )
+    estimated_equity = _fmt_money(
+        item.get("estimated_equity") or item.get("equity") or
+        item.get("equity_value") or item.get("equity_amount")
+    )
+    loan_balance = _fmt_money(
+        item.get("mortgage_balance") or item.get("loan_balance") or
+        item.get("open_mortgage") or item.get("estimated_mortgage") or
+        item.get("open_lien") or item.get("lien_amount")
+    )
+
     return {
         "address": address.title(),
         "city": str(city).title(),
@@ -380,6 +405,9 @@ def _normalize_api_record(item: dict, county: str, state: str) -> dict | None:
         "baths": str(item.get("bathrooms") or item.get("baths") or ""),
         "sqft": str(item.get("sqft") or item.get("living_sqft") or ""),
         "yearBuilt": str(item.get("year_built") or ""),
+        "purchaseDate": purchase_date,
+        "estimatedEquity": estimated_equity,
+        "loanBalance": loan_balance,
         "source": "propwire",
         "sourceName": f"PropWire — {county} County",
         "sourceUrl": "https://propwire.com",
@@ -434,6 +462,16 @@ def _parse_page_text(body_text: str, county: str, state: str, url: str) -> list:
         val_m = re.search(r'\$([0-9]{3}[0-9,]+)', card)
         tax_value = f"${val_m.group(1)}" if val_m else ""
 
+        # Try to extract equity / loan balance from card text
+        equity_m = re.search(r'[Ee]quity[:\s]+\$?([0-9,]+)', card)
+        equity_val = f"${equity_m.group(1)}" if equity_m else ""
+        loan_m = re.search(r'[Ll]oan\s*[Bb]alance[:\s]+\$?([0-9,]+)|[Mm]ortgage[:\s]+\$?([0-9,]+)', card)
+        loan_val = f"${(loan_m.group(1) or loan_m.group(2))}" if loan_m else ""
+
+        # Try to extract purchase/last sale date
+        date_m = re.search(r'[Pp]urchased?[:\s]+(\d{1,2}/\d{1,2}/\d{2,4}|\d{4}-\d{2}-\d{2})', card)
+        purchase_date = date_m.group(1) if date_m else ""
+
         records.append({
             "address": address.title(),
             "city": city.title(),
@@ -450,6 +488,9 @@ def _parse_page_text(body_text: str, county: str, state: str, url: str) -> list:
             "caseNumber": "",
             "parcelId": "",
             "beds": "", "baths": "", "sqft": "", "yearBuilt": "",
+            "purchaseDate": purchase_date,
+            "estimatedEquity": equity_val,
+            "loanBalance": loan_val,
             "source": "propwire",
             "sourceName": f"PropWire — {county} County",
             "sourceUrl": url,

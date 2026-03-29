@@ -1,0 +1,6 @@
+_archive/
+.claude/
+server.log
+*.xlsx
+node_modules/
+geocache.json

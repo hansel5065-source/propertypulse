@@ -1726,8 +1726,8 @@ body {
 <!-- ===================== TAX DELINQUENT PAGE ===================== -->
 <section class="page" id="pageTaxDelinquent" aria-label="Tax Delinquent">
   <div style="padding:4px 0 12px">
-    <h2 class="section-title" style="margin-bottom:4px">&#128176; Tax Delinquent Hot Leads</h2>
-    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">Properties with unpaid taxes — sorted by assessed value. Contact owners before auction.</p>
+    <h2 class="section-title" style="margin-bottom:4px">&#127968; Track 2 — Tax Watch</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">Residential tax-delinquent properties ranked by risk score. Non-residential pre-filtered. Contact owners before auction.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="taxCountyFilters"></div>
     <div class="filter-section" style="margin-bottom:8px">
       <div class="filter-label">Price Range</div>
@@ -1778,11 +1778,11 @@ body {
 <!-- ===================== EQUITY PAGE ===================== -->
 <section class="page" id="pageEquity" aria-label="Equity Opportunities">
   <div style="padding:4px 0 12px">
-    <h2 class="section-title" style="margin-bottom:4px">&#128176; Highest Equity Opportunities</h2>
-    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">Properties with the most equity — biggest spread between value and debt. Best targets for acquisition.</p>
+    <h2 class="section-title" style="margin-bottom:4px">&#127942; Track 1 — Foreclosures</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">Foreclosures + HOA sales ranked by equity %. Highest spread = biggest opportunity. Includes upset-bid window alerts.</p>
 
     <div class="filter-section" style="margin-bottom:8px">
-      <div class="filter-label">Equity Range</div>
+      <div class="filter-label">Equity %</div>
       <div class="filter-row" id="equityRangeFilters">
         <button class="chip active" data-eqrange="all">All</button>
         <button class="chip" data-eqrange="100k">$100K+</button>
@@ -1793,14 +1793,14 @@ body {
     </div>
 
     <div class="filter-section" style="margin-bottom:8px">
-      <div class="filter-label">Category</div>
+      <div class="filter-label">Type</div>
       <div class="filter-row" id="equityCategoryFilters">
         <button class="chip active" data-eqcat="all">All</button>
-        <button class="chip" data-eqcat="foreclosure">Foreclosure</button>
-        <button class="chip" data-eqcat="lis_pendens">Lis Pendens</button>
+        <button class="chip" data-eqcat="foreclosure">Mortgage</button>
+        <button class="chip" data-eqcat="hoa_foreclosure">HOA</button>
+        <button class="chip" data-eqcat="tax_foreclosure">Tax FC</button>
+        <button class="chip" data-eqcat="master_sale">Master Sale</button>
         <button class="chip" data-eqcat="auction">Auction</button>
-        <button class="chip" data-eqcat="tax_delinquent">Tax Delinquent</button>
-        <button class="chip" data-eqcat="other">Other</button>
       </div>
     </div>
 
@@ -2096,9 +2096,9 @@ body {
       <span class="nav-icon">&#128205;</span>
       <span class="nav-label">Map</span>
     </button>
-    <button class="nav-item" data-tab="pageTaxDelinquent" aria-label="Tax">
-      <span class="nav-icon">&#128176;</span>
-      <span class="nav-label">Tax</span>
+    <button class="nav-item" data-tab="pageTaxDelinquent" aria-label="Tax Watch">
+      <span class="nav-icon">&#127968;</span>
+      <span class="nav-label">Tax Watch</span>
     </button>
     <button class="nav-item" data-tab="pageDeadlines" aria-label="Deadlines">
       <span class="nav-icon">&#128197;</span>
@@ -2108,9 +2108,9 @@ body {
       <span class="nav-icon">&#128188;</span>
       <span class="nav-label">Strategy</span>
     </button>
-    <button class="nav-item" data-tab="pageEquity" aria-label="Equity">
-      <span class="nav-icon">&#128176;</span>
-      <span class="nav-label">Equity</span>
+    <button class="nav-item" data-tab="pageEquity" aria-label="Foreclosures">
+      <span class="nav-icon">&#127942;</span>
+      <span class="nav-label">Foreclosures</span>
     </button>
   </div>
 </nav>
@@ -2180,7 +2180,7 @@ let activeScore = localStorage.getItem('pp_score') || 'all';
 let activeSort = localStorage.getItem('pp_sort') || 'score';
 
 const DISTRESS_MAP = {
-  active_sale: ['auction','tax_foreclosure','foreclosure','master_sale','county_sale'],
+  active_sale: ['auction','tax_foreclosure','foreclosure','hoa_foreclosure','master_sale','county_sale'],
   lien_legal:  ['lis_pendens','hoa_lien','municipal_lien','mechanic_lien','irs_lien','lien'],
   delinquent:  ['tax_delinquent','tax_sale'],
   other:       ['reo','probate','surplus','forfeiture']
@@ -2305,7 +2305,12 @@ function normalizeRow(row) {
     yearBuilt: get(['Year Built', 'yearBuilt', 'year_built']),
     lender: get(['Lender', 'lender']),
     equity: get(['Equity %', 'equity']),
+    estimatedEquity: get(['estimatedEquity', 'estimated_equity', 'Equity %', 'equity']),
     estArv: get(['Est ARV ($)', 'estArv']),
+    loanBalance: get(['Loan Amount ($)', 'loanBalance', 'loan_balance']),
+    yearsOwned: get(['yearsOwned', 'years_owned']),
+    plaintiff: get(['plaintiff', 'Plaintiff', 'attorney']),
+    distressLevel: get(['distressLevel', 'distress_level']),
     score: parseInt(get(['Investment Score', 'score', 'Score', 'Priority'])) || 0,
     urgentFlag: get(['Urgent Flag', 'urgentFlag', 'urgent_flag']),
     ownerMailingAddr: get(['Owner Mailing Addr', 'ownerMailingAddr']),
@@ -2511,9 +2516,17 @@ function formatPrice(val) {
   return '$' + n.toLocaleString();
 }
 
+const CATEGORY_LABELS = {
+  foreclosure: 'Foreclosure', tax_foreclosure: 'Tax Foreclosure',
+  hoa_foreclosure: 'HOA Foreclosure', master_sale: 'Master Sale',
+  auction: 'Auction', tax_sale: 'Tax Sale', county_sale: 'County Sale',
+  lis_pendens: 'Lis Pendens', hoa_lien: 'HOA Lien', irs_lien: 'IRS Lien',
+  mechanic_lien: 'Mechanic Lien', tax_delinquent: 'Tax Delinquent',
+  probate: 'Probate', reo: 'REO', other: 'Other'
+};
 function formatCategory(cat) {
   if (!cat) return 'Other';
-  return cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return CATEGORY_LABELS[cat] || cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function getCategoryClass(cat) {
@@ -3477,19 +3490,29 @@ function yearsOwnedNum(str) {
   return m ? parseInt(m[1]) : 0;
 }
 
+const FORECLOSURE_CATS = new Set(['foreclosure','tax_foreclosure','hoa_foreclosure','master_sale','auction','tax_sale','county_sale']);
+
 function renderEquity() {
-  // Build pool: use estimatedEquity, then taxValue-salePrice spread, then taxValue alone
-  let pool = allData.map(item => {
-    let eq = parseEquity(item.estimatedEquity);
-    const tv = parseEquity(item.taxValue);
-    const lb = parseEquity(item.loanBalance);
-    const sp = parseEquity(item.salePrice);
-    let mode = 'estimated';
-    if (!eq && tv > 0 && lb > 0) { eq = tv - lb; mode = 'spread'; }
-    else if (!eq && tv > 0 && sp > 0) { eq = tv - sp; mode = 'spread'; }
-    else if (!eq && tv > 0) { eq = tv; mode = 'assessed'; }
-    return { ...item, _eq: eq, _eqMode: mode };
-  }).filter(i => i._eq > 0);
+  // Track 1: foreclosure types only, sorted by equity %
+  let pool = allData
+    .filter(item => FORECLOSURE_CATS.has((item.category || '').toLowerCase()))
+    .map(item => {
+      // Prefer pre-computed estimatedEquity %, then compute from taxValue-salePrice spread
+      let eqPct = null;
+      if (item.estimatedEquity && item.estimatedEquity.endsWith('%')) {
+        eqPct = parseFloat(item.estimatedEquity);
+      }
+      let eq = parseEquity(item.estimatedEquity);
+      const tv = parseEquity(item.taxValue);
+      const lb = parseEquity(item.loanBalance);
+      const sp = parseEquity(item.salePrice);
+      let mode = 'estimated';
+      if (!eq && tv > 0 && lb > 0) { eq = tv - lb; mode = 'spread'; }
+      else if (!eq && tv > 0 && sp > 0) { eq = tv - sp; mode = 'spread'; }
+      else if (!eq && tv > 0) { eq = tv; mode = 'assessed'; }
+      if (!eqPct && tv > 0 && eq > 0) eqPct = Math.round((eq / tv) * 100);
+      return { ...item, _eq: eq, _eqMode: mode, _eqPct: eqPct };
+    }).filter(i => i._eq > 0);
 
   // Apply filters
   if (equityRangeFilter !== 'all') {
@@ -3497,7 +3520,9 @@ function renderEquity() {
     pool = pool.filter(i => i._eq >= min);
   }
   if (equityCatFilter !== 'all') {
-    pool = pool.filter(i => (i.category || '').includes(equityCatFilter));
+    // Use exact match; 'foreclosure' chip should NOT catch 'hoa_foreclosure'
+    pool = pool.filter(i => (i.category || '') === equityCatFilter ||
+      (equityCatFilter === 'foreclosure' && i.category === 'foreclosure'));
   }
   if (equityCountyFilter !== 'all') {
     pool = pool.filter(i => (i.county || '').toLowerCase() === equityCountyFilter.toLowerCase());
@@ -3523,8 +3548,12 @@ function renderEquity() {
     return;
   }
 
+  // Sort by equity % descending (highest spread first)
+  pool.sort((a, b) => (b._eqPct || 0) - (a._eqPct || 0) || b._eq - a._eq);
+
   const totalEq = pool.reduce((s, i) => s + i._eq, 0);
-  summary.textContent = `${pool.length} properties · avg equity $${Math.round(totalEq / pool.length).toLocaleString()} · total $${Math.round(totalEq).toLocaleString()}`;
+  const hoaCount = pool.filter(i => i.category === 'hoa_foreclosure').length;
+  summary.textContent = `${pool.length} foreclosures · avg equity $${Math.round(totalEq / pool.length).toLocaleString()}${hoaCount ? ` · ${hoaCount} HOA` : ''}`;
 
   list.innerHTML = '';
   pool.slice(0, 100).forEach((item, idx) => {
@@ -3536,19 +3565,20 @@ function renderEquity() {
     const ltv = (tv > 0 && lb > 0) ? Math.round((lb / tv) * 100) : null;
     const ltvColor = ltv === null ? 'var(--text-muted)' : ltv < 50 ? 'var(--green)' : ltv < 70 ? 'var(--orange)' : 'var(--red)';
 
-    const equityPct = tv > 0 ? Math.round((item._eq / tv) * 100) : null;
+    const equityPct = item._eqPct;
     const barWidth = equityPct ? Math.min(equityPct, 100) : 0;
-    const barColor = barWidth >= 60 ? 'var(--green)' : barWidth >= 40 ? 'var(--orange)' : 'var(--accent)';
+    const barColor = barWidth >= 70 ? 'var(--green)' : barWidth >= 50 ? 'var(--orange)' : 'var(--accent)';
+    const isHoa = item.category === 'hoa_foreclosure';
 
     card.innerHTML = `
       <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 4px">
         <div>
-          <div class="card-rank" style="font-size:11px;color:var(--text-muted);margin-bottom:2px">#${idx + 1} by equity</div>
+          <div class="card-rank" style="font-size:11px;color:var(--text-muted);margin-bottom:2px">#${idx + 1} by equity${isHoa ? ' · <span style="color:var(--purple)">HOA</span>' : ''}</div>
           <div class="card-address" style="font-size:15px;font-weight:600">${item.address}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:20px;font-weight:700;color:var(--green)">$${Math.round(item._eq).toLocaleString()}</div>
-          <div style="font-size:10px;color:var(--text-muted)">${item._eqMode === 'spread' ? 'value − bid' : item._eqMode === 'assessed' ? 'assessed value' : 'est. equity'}</div>
+          <div style="font-size:12px;font-weight:700;color:${barColor}">${equityPct !== null ? equityPct + '% equity' : item._eqMode === 'assessed' ? 'assessed' : 'est.'}</div>
         </div>
       </div>
 
@@ -3557,6 +3587,7 @@ function renderEquity() {
         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:3px">
           <span>Equity ${equityPct}%</span>
           ${ltv !== null ? `<span style="color:${ltvColor}">LTV ${ltv}%</span>` : ''}
+          ${item.salePrice ? `<span>Bid: ${formatPrice(item.salePrice)}</span>` : ''}
         </div>
         <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
           <div style="height:100%;width:${barWidth}%;background:${barColor};border-radius:3px;transition:width 0.4s"></div>

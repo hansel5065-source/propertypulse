@@ -17,6 +17,29 @@ TARGET_COUNTIES = {
     "mecklenburg", "gaston", "union", "york"
 }
 
+# ── Residential property type filter (for tax_delinquent) ─────────────────
+RESIDENTIAL_TYPES = {
+    "residential 1 family", "residential 2 family", "residential multi-family",
+    "residential multifamily", "townhouse", "townhome", "condominium", "condo",
+    "mobile home", "manufactured home", "single family", "single family residential",
+    "sfr", "duplex", "triplex", "quadplex", "residential",
+}
+NON_RESIDENTIAL_TYPES = {
+    "commercial", "industrial", "vacant land", "vacant", "agriculture",
+    "agricultural", "government", "institutional", "special use", "utility",
+    "exempt", "church", "office", "retail", "warehouse", "storage",
+    "parking", "mixed use", "hotel", "motel",
+}
+
+def is_residential(prop_type: str) -> bool:
+    """Return True if property type is residential or unknown (keep unknown)."""
+    if not prop_type:
+        return True  # unknown — keep it
+    pt = prop_type.strip().lower()
+    if any(r in pt for r in NON_RESIDENTIAL_TYPES):
+        return False
+    return True  # residential match or unrecognized — keep
+
 # ── Scoring ────────────────────────────────────────────────────────────────
 TYPE_SCORES = {
     "irs_lien": 7, "lis_pendens": 6, "mechanic_lien": 6,
@@ -43,6 +66,45 @@ DISTRESS_MAP = {
     "lis_pendens": "lien_legal",
     "tax_delinquent": "delinquent",
 }
+
+# City → county lookup for zip_loop scrapers that set all records to one county
+CITY_COUNTY = {
+    # Mecklenburg NC
+    "charlotte": "Mecklenburg", "matthews": "Mecklenburg", "pineville": "Mecklenburg",
+    "huntersville": "Mecklenburg", "davidson": "Mecklenburg", "cornelius": "Mecklenburg",
+    "mint hill": "Mecklenburg", "stallings": "Mecklenburg",
+    # Gaston NC
+    "gastonia": "Gaston", "belmont": "Gaston", "bessemer city": "Gaston",
+    "cherryville": "Gaston", "cramerton": "Gaston", "dallas": "Gaston",
+    "lowell": "Gaston", "mount holly": "Gaston", "stanley": "Gaston",
+    "alexis": "Gaston",
+    # Union NC
+    "monroe": "Union", "indian trail": "Union", "waxhaw": "Union",
+    "wingate": "Union", "marshville": "Union", "marvin": "Union",
+    "weddington": "Union", "hemby bridge": "Union", "fairview": "Union",
+    "mineral springs": "Union", "new london": "Union",
+    # York SC
+    "rock hill": "York", "fort mill": "York", "clover": "York",
+    "york": "York", "tega cay": "York", "lake wylie": "York",
+    "sharon": "York", "smyrna": "York",
+    # Out-of-area cities (correct county assigned → will be rejected by TARGET_COUNTIES filter)
+    "kings mountain": "Cleveland", "lincolnton": "Lincoln", "midland": "Cabarrus",
+    "mooresville": "Iredell", "peachland": "Anson", "morven": "Anson",
+    "maiden": "Lincoln", "vale": "Lincoln", "denver": "Lincoln",
+}
+
+def county_from_address(address: str) -> str:
+    """Parse city from multiline address and return county. Returns '' if unknown."""
+    if not address:
+        return ""
+    # Format: "Street Name\nCity, ST ZIP" or "Street, City, ST ZIP"
+    m = re.search(r'\n([^,\n]+),\s*[A-Z]{2}', address)
+    if not m:
+        m = re.search(r',\s*([^,]+),\s*[A-Z]{2}\s*\d{5}', address)
+    if m:
+        city = m.group(1).strip().lower()
+        return CITY_COUNTY.get(city, "")
+    return ""
 
 def normalize_county(c):
     if not c:
@@ -77,6 +139,11 @@ def slug(addr):
 
 def score_record(r):
     cat = (r.get("category") or "other").lower()
+
+    # Tax delinquent uses dedicated risk scorer
+    if cat == "tax_delinquent":
+        return score_risk(r)
+
     base = TYPE_SCORES.get(cat, 2)
     bonus = SOURCE_BONUS.get(r.get("sourceKey", ""), 0)
 
@@ -99,6 +166,46 @@ def score_record(r):
 
     return min(10, base + bonus + equity_bonus + date_bonus + addr_bonus + bid_bonus + sfr_bonus + has_val_bonus)
 
+
+def score_risk(r):
+    """
+    Risk score for tax_delinquent records (Track 2 — Tax Watch).
+    Higher = more distressed / higher priority for investors.
+    Scale 1-10.
+    """
+    score = 3  # base for tax_delinquent
+
+    # Delinquent amount — more owed = more pressure on owner
+    delinquent = parse_money(r.get("salePrice") or r.get("notes") or 0)
+    if delinquent > 10000:  score += 3
+    elif delinquent > 5000: score += 2
+    elif delinquent > 1000: score += 1
+
+    # Equity signal — high assessed value vs low delinquency = owner has equity & likely motivated
+    tax_val = parse_money(r.get("taxValue"))
+    if tax_val > 0 and delinquent > 0:
+        delinquent_ratio = delinquent / tax_val
+        if delinquent_ratio < 0.05 and tax_val > 100000:
+            # Small delinquency on high-value home = equity present, owner might sell
+            score += 2
+        elif delinquent_ratio < 0.10:
+            score += 1
+
+    # Address present
+    if r.get("address"):
+        score += 1
+
+    # Source quality
+    bonus = SOURCE_BONUS.get(r.get("sourceKey", ""), 0)
+    score += bonus
+
+    # Residential confirmed
+    pt = str(r.get("propertyType", "")).lower()
+    if pt and any(res in pt for res in ("residential", "sfr", "single family", "townhouse", "condo")):
+        score += 1
+
+    return min(10, score)
+
 def dedup_key(r):
     addr = re.sub(r'\s+', ' ', (r.get("address") or "").strip().lower())
     county = (r.get("county") or "").lower()
@@ -110,11 +217,32 @@ def dedup_key(r):
     return None
 
 def normalize_new(r):
-    """Convert standalone scraper schema → data.json schema."""
+    """Convert standalone scraper schema → data.json schema.
+    Returns (record, None) on success or (None, skip_reason) on skip.
+    """
     category = (r.get("listingType") or "other").lower()
     county = normalize_county(r.get("county"))
+    # For zip_loop sites that set all records to one county (e.g. all → "Mecklenburg"),
+    # override with city lookup from address
+    addr_county = county_from_address(r.get("address") or "")
+    if addr_county:
+        county = addr_county
     if county.lower() not in TARGET_COUNTIES:
-        return None
+        return None, "county"
+
+    # Drop non-residential tax_delinquent records (Track 2 = residential only)
+    if category == "tax_delinquent":
+        prop_type = r.get("propertyType") or r.get("useType") or r.get("landUse") or ""
+        if not is_residential(prop_type):
+            return None, "nonresidential"
+        # Drop very low-value properties (< $50K assessed) — not worth pursuing
+        tv = parse_money(r.get("taxValue") or r.get("assessedValue") or 0)
+        if tv > 0 and tv < 50000:
+            return None, "nonresidential"
+
+    # Drop REO, forfeiture, surplus (not useful for two-track system)
+    if category in ("reo", "forfeiture", "surplus"):
+        return None, "nonresidential"
 
     address = r.get("address") or ""
     city = r.get("city") or ""
@@ -141,6 +269,15 @@ def normalize_new(r):
         tax_val = f"${val:,.0f}" if val else ""
 
     distress = DISTRESS_MAP.get(category, "other")
+
+    # Compute equity % for foreclosure records
+    estimated_equity = ""
+    if category in ("foreclosure", "tax_foreclosure", "hoa_foreclosure", "master_sale", "auction"):
+        tax_val_num = parse_money(tax_val)
+        bid_num = parse_money(sale_price)
+        if tax_val_num > 0 and bid_num > 0 and tax_val_num > bid_num:
+            equity_pct = (tax_val_num - bid_num) / tax_val_num * 100
+            estimated_equity = f"{equity_pct:.0f}%"
 
     rec = {
         "address": full_addr,
@@ -170,10 +307,10 @@ def normalize_new(r):
         "baths": str(r.get("bathrooms") or ""),
         "sqft": str(r.get("sqft") or ""),
         "yearBuilt": str(r.get("yearBuilt") or ""),
-        "propertyType": r.get("propertyType") or "",
+        "propertyType": r.get("propertyType") or r.get("useType") or r.get("landUse") or "",
         "notes": r.get("description") or "",
         "lienTypes": [],
-        "estimatedEquity": "",
+        "estimatedEquity": estimated_equity,
         "loanBalance": "",
         "yearsOwned": "",
         "purchaseDate": "",
@@ -183,14 +320,35 @@ def normalize_new(r):
         "scrapedAt": r.get("scrapedAt") or datetime.utcnow().isoformat() + "Z",
     }
     rec["score"] = score_record(rec)
-    return rec
+    # Drop tax_delinquent with no enrichment signals (score < 4 = bare address, no useful data)
+    if category == "tax_delinquent" and rec["score"] < 4:
+        return None, "nonresidential"
+    return rec, None
 
 def add_distress(r):
-    """Add/fix distressLevel on existing records."""
+    """Add/fix distressLevel and apply residential filter to existing records."""
     cat = (r.get("category") or "other").lower()
     if not r.get("distressLevel"):
         r["distressLevel"] = DISTRESS_MAP.get(cat, "other")
+    # Re-score with updated scoring (score_risk for tax_delinquent)
+    r["score"] = score_record(r)
     return r
+
+def keep_existing(r):
+    """Return False to drop an existing record (apply same filters as new)."""
+    cat = (r.get("category") or "other").lower()
+    # Drop non-residential tax_delinquent and low-value (<$50K)
+    if cat == "tax_delinquent":
+        prop_type = r.get("propertyType") or ""
+        if not is_residential(prop_type):
+            return False
+        tv = parse_money(r.get("taxValue") or 0)
+        if tv > 0 and tv < 50000:
+            return False
+    # Drop REO, forfeiture, surplus (not useful for two-track system)
+    if cat in ("reo", "forfeiture", "surplus"):
+        return False
+    return True
 
 # ── Load existing ──────────────────────────────────────────────────────────
 print("Loading existing data.json...")
@@ -199,8 +357,12 @@ with open(INPUT_EXIST, encoding="utf-8", errors="replace") as f:
 existing = existing if isinstance(existing, list) else existing.get("properties", [])
 print(f"  Existing: {len(existing)} records")
 
-# Add distressLevel to existing records
-existing = [add_distress(r) for r in existing]
+# Add distressLevel + re-score, drop non-residential tax_delinquent and junk categories
+existing_filtered = [r for r in existing if keep_existing(r)]
+existing = [add_distress(r) for r in existing_filtered]
+# Drop tax_delinquent with no enrichment signals (score == 3 = bare address, no data)
+existing = [r for r in existing if not (r.get("category") == "tax_delinquent" and r.get("score", 0) < 4)]
+print(f"  After filter:  {len(existing)} records")
 
 # Build dedup index from existing
 seen = {}
@@ -221,13 +383,17 @@ added = 0
 skipped_county = 0
 skipped_dup = 0
 skipped_empty = 0
+skipped_nonresidential = 0
 
 merged = list(existing)
 
 for r in new_raw:
-    norm = normalize_new(r)
+    norm, skip_reason = normalize_new(r)
     if norm is None:
-        skipped_county += 1
+        if skip_reason == "nonresidential":
+            skipped_nonresidential += 1
+        else:
+            skipped_county += 1
         continue
     if not norm["address"] and not norm["parcelId"]:
         skipped_empty += 1
@@ -245,12 +411,13 @@ for r in new_raw:
 merged.sort(key=lambda x: x.get("score", 0), reverse=True)
 
 print(f"\nResults:")
-print(f"  Existing kept:    {len(existing)}")
-print(f"  New added:        {added}")
-print(f"  Skipped (county): {skipped_county}")
-print(f"  Skipped (dup):    {skipped_dup}")
-print(f"  Skipped (empty):  {skipped_empty}")
-print(f"  TOTAL:            {len(merged)}")
+print(f"  Existing kept:        {len(existing)}")
+print(f"  New added:            {added}")
+print(f"  Skipped (county):     {skipped_county}")
+print(f"  Skipped (non-resid):  {skipped_nonresidential}")
+print(f"  Skipped (dup):        {skipped_dup}")
+print(f"  Skipped (empty):      {skipped_empty}")
+print(f"  TOTAL:                {len(merged)}")
 
 # Category breakdown
 cats = {}

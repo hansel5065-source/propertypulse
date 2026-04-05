@@ -2735,7 +2735,12 @@ function applyFilters() {
 function renderDashboard() {
   // Stats
   const totalLeads = allData.length;
-  const hotLeads = allData.filter(d => d.score >= 7).length;
+  const FORECLOSURE_CATS = new Set(['foreclosure','tax_foreclosure','hoa_foreclosure','master_sale','auction']);
+  const hotLeads = allData.filter(d => {
+    if (!FORECLOSURE_CATS.has(d.category)) return false;
+    const days = daysUntil(d.saleDate);
+    return days !== Infinity && days >= 0 && days <= 30;
+  }).length;
   const counties = [...new Set(allData.map(d => d.county).filter(Boolean))].length;
   const sources = [...new Set(allData.map(d => d.source).filter(Boolean))].length;
 
@@ -2749,7 +2754,7 @@ function renderDashboard() {
     <div class="stat-card">
       <div class="stat-icon red">&#128293;</div>
       <div class="stat-value" data-count="${hotLeads}">0</div>
-      <div class="stat-label">Hot Leads</div>
+      <div class="stat-label">Due &lt;30 Days</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon green">&#127961;</div>
@@ -2853,8 +2858,15 @@ function renderDashboard() {
       </div>`;
   }).join('');
 
-  // Hot leads with action steps
-  const hotList = [...allData].sort((a, b) => b.score - a.score).slice(0, 5);
+  // Hot leads — active foreclosures with sale date within 30 days, sorted soonest first
+  const hotList = [...allData]
+    .filter(d => {
+      if (!FORECLOSURE_CATS.has(d.category)) return false;
+      const days = daysUntil(d.saleDate);
+      return days !== Infinity && days >= 0 && days <= 30;
+    })
+    .sort((a, b) => daysUntil(a.saleDate) - daysUntil(b.saleDate))
+    .slice(0, 5);
   document.getElementById('hotLeadsList').innerHTML = hotList.map(item => {
     const action = getActionStep(item);
     const days = daysUntil(item.saleDate);

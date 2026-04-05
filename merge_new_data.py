@@ -437,6 +437,119 @@ print("\nBy County:")
 for k, v in sorted(counties.items(), key=lambda x: -x[1]):
     print(f"  {k}: {v}")
 
+# ── Equity Enrichment ─────────────────────────────────────────────────────
+# For foreclosure records that have an opening bid but no assessed value,
+# look up the assessed value from county GIS (spatialest for NC, York portal for SC).
+# Uses 14426 Arlandes Drive as the reference example:
+#   Assessed: $332,500 (spatialest) | Opening Bid: $147,300 (foreclosure notice)
+#   Equity: $185,200 = 55.7%
+
+FORECLOSURE_CATS_ENRICH = {"foreclosure", "tax_foreclosure", "hoa_foreclosure", "master_sale", "auction"}
+SPATIALEST_COUNTIES = {"mecklenburg": "mecklenburg", "gaston": "gaston", "union": "union"}
+
+def _spatialest_lookup(page, address: str, county_slug: str) -> float:
+    """Look up assessed total value from spatialest. Returns 0 on failure."""
+    try:
+        base = f"https://property.spatialest.com/nc/{county_slug}/"
+        page.goto(base, wait_until="domcontentloaded", timeout=20000)
+        page.wait_for_timeout(2000)
+        # Search by address
+        search_box = page.locator("input[placeholder*='search' i], input[placeholder*='address' i], input[type='search']").first
+        search_box.fill(address)
+        search_box.press("Enter")
+        page.wait_for_timeout(3000)
+        # Try to click first result
+        first_result = page.locator(".search-result, [class*='result'], li[class*='item']").first
+        if first_result.count() > 0:
+            first_result.click()
+            page.wait_for_timeout(3000)
+        # Extract total assessed value
+        content = page.content()
+        m = re.search(r'Total\s+Value[^$]*\$\s*([\d,]+)', content, re.IGNORECASE)
+        if not m:
+            m = re.search(r'"total_value"\s*:\s*"?\$?([\d,]+)', content)
+        if m:
+            return float(m.group(1).replace(",", ""))
+    except Exception as e:
+        pass
+    return 0
+
+def _york_lookup(page, address: str) -> float:
+    """Look up appraised value from York County SC tax portal. Returns 0 on failure."""
+    try:
+        page.goto("https://www.secured-server.biz/YorkCounty/HP/", wait_until="domcontentloaded", timeout=20000)
+        page.wait_for_timeout(2000)
+        # Strip direction and suffix for broader match
+        addr_clean = re.sub(r'\b(N|S|E|W|NE|NW|SE|SW)\b\.?', '', address, flags=re.IGNORECASE)
+        addr_clean = re.sub(r'\b(St|Ave|Dr|Rd|Ln|Blvd|Ct|Pl|Way|Cir|Ter|Pkwy|Hwy)\b\.?$', '', addr_clean.strip(), flags=re.IGNORECASE).strip()
+        search = page.locator("#searchQuery, input[name='search'], input[type='text']").first
+        search.fill(addr_clean)
+        type_filter = page.locator("#typeFilter, select[name='type']").first
+        if type_filter.count() > 0:
+            type_filter.select_option("Property")
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(3000)
+        content = page.content()
+        m = re.search(r'Appraised\s+Value[^$]*\$\s*([\d,]+)', content, re.IGNORECASE)
+        if m:
+            return float(m.group(1).replace(",", ""))
+    except Exception as e:
+        pass
+    return 0
+
+def enrich_equity(records: list) -> int:
+    """Fill in taxValue + estimatedEquity for foreclosure records missing assessed value.
+    Returns count of records enriched."""
+    to_enrich = [
+        r for r in records
+        if r.get("category") in FORECLOSURE_CATS_ENRICH
+        and not r.get("taxValue")
+        and r.get("openingBid") or r.get("salePrice")
+        and r.get("address")
+        and "\n" not in r.get("address", "")  # skip foreclosure.com (no house number)
+    ]
+    if not to_enrich:
+        return 0
+
+    print(f"\nEnriching equity for {len(to_enrich)} foreclosure records...")
+    enriched = 0
+
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            page = context.new_page()
+
+            for r in to_enrich:
+                address = r.get("address", "").strip()
+                county = (r.get("county") or "").lower()
+                assessed = 0
+
+                if county in SPATIALEST_COUNTIES:
+                    assessed = _spatialest_lookup(page, address, SPATIALEST_COUNTIES[county])
+                elif county == "york":
+                    assessed = _york_lookup(page, address)
+
+                if assessed > 0:
+                    bid = parse_money(r.get("openingBid") or r.get("salePrice") or 0)
+                    r["taxValue"] = f"${assessed:,.0f}"
+                    if bid > 0 and assessed > bid:
+                        equity_pct = (assessed - bid) / assessed * 100
+                        r["estimatedEquity"] = f"{equity_pct:.0f}%"
+                    enriched += 1
+                    print(f"  ✓ {address[:50]} | assessed=${assessed:,.0f} | equity={r.get('estimatedEquity','?')}")
+
+            context.close()
+            browser.close()
+    except Exception as e:
+        print(f"  Equity enrichment error: {e}")
+
+    print(f"  Enriched: {enriched}/{len(to_enrich)}")
+    return enriched
+
+enrich_equity(merged)
+
 # ── Save ───────────────────────────────────────────────────────────────────
 print(f"\nSaving to {OUTPUT}...")
 with open(OUTPUT, "w", encoding="utf-8") as f:

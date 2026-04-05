@@ -2914,8 +2914,19 @@ function renderDashboard() {
 }
 
 function goToLead(address) {
-  searchQuery = address;
-  document.getElementById('searchInput').value = address;
+  // Reset all filters so the lead is guaranteed to show
+  activeCounty = 'all';
+  activeCategory = 'all';
+  activeDistress = 'all';
+  activeScore = 'all';
+  document.querySelectorAll('.chip[data-county], .chip[data-category], .chip[data-distress], .chip[data-score]')
+    .forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.chip[data-county="all"], .chip[data-category="all"], .chip[data-score="all"]')
+    .forEach(c => c.classList.add('active'));
+  // Use first line of address only (foreclosure.com has multiline addresses)
+  const searchAddr = address.split('\n')[0].trim();
+  searchQuery = searchAddr;
+  document.getElementById('searchInput').value = searchAddr;
   applyFilters();
   renderLeads(true);
   switchTab('pageLeads');

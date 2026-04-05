@@ -2,7 +2,7 @@
 merge_new_data.py — Merge standalone scraper output into data.json
 Normalizes schema, filters to Charlotte metro, deduplicates, scores.
 """
-import json, re, os
+import json, re, os, urllib.parse, urllib.request
 from datetime import datetime, date
 
 import argparse as _ap
@@ -447,29 +447,69 @@ for k, v in sorted(counties.items(), key=lambda x: -x[1]):
 FORECLOSURE_CATS_ENRICH = {"foreclosure", "tax_foreclosure", "hoa_foreclosure", "master_sale", "auction"}
 SPATIALEST_COUNTIES = {"mecklenburg": "mecklenburg", "gaston": "gaston", "union": "union"}
 
-def _spatialest_lookup(page, address: str, county_slug: str) -> float:
-    """Look up assessed total value from spatialest. Returns 0 on failure."""
+def _polaris_address_lookup(page, parcel_id: str) -> str:
+    """Use POLARIS (Mecklenburg) to get full situs address for a parcel ID.
+    Returns 'HOUSE# STREET NAME, CITY, NC ZIP' or '' on failure."""
     try:
-        base = f"https://property.spatialest.com/nc/{county_slug}/"
-        page.goto(base, wait_until="domcontentloaded", timeout=20000)
-        page.wait_for_timeout(2000)
-        # Search by address
-        search_box = page.locator("input[placeholder*='search' i], input[placeholder*='address' i], input[type='search']").first
-        search_box.fill(address)
-        search_box.press("Enter")
+        # POLARIS search by PIN (parcel ID number)
+        url = f"https://polaris3g.mecklenburgcountync.gov/?pin={parcel_id}"
+        page.goto(url, wait_until="domcontentloaded", timeout=15000)
         page.wait_for_timeout(3000)
-        # Try to click first result
-        first_result = page.locator(".search-result, [class*='result'], li[class*='item']").first
-        if first_result.count() > 0:
-            first_result.click()
-            page.wait_for_timeout(3000)
-        # Extract total assessed value
         content = page.content()
-        m = re.search(r'Total\s+Value[^$]*\$\s*([\d,]+)', content, re.IGNORECASE)
-        if not m:
-            m = re.search(r'"total_value"\s*:\s*"?\$?([\d,]+)', content)
+        # Try to extract situs address from the page
+        m = re.search(r'[Ss]itus[^<>]*?(\d+\s+[A-Z0-9 ]+(?:ST|DR|AVE|LN|RD|BLVD|CT|WAY|PL|CIR|TER|PKWY|HWY)[^<"\n]*)', content)
         if m:
-            return float(m.group(1).replace(",", ""))
+            return m.group(1).strip().title()
+        # Also try page URL after redirect
+        current_url = page.url
+        if "/situs/" in current_url:
+            addr_part = current_url.split("/situs/")[-1]
+            addr_part = urllib.parse.unquote(addr_part).replace("+", " ")
+            return addr_part.title()
+    except Exception:
+        pass
+    return ""
+
+def _spatialest_lookup(page, query: str, county_slug: str) -> float:
+    """Look up assessed total value from spatialest by address. Returns 0 on failure."""
+    try:
+        base = f"https://property.spatialest.com/nc/{county_slug}"
+        page.goto(base, timeout=20000)
+        page.wait_for_timeout(3000)
+        # Use street address only (no city/state) — spatialest searches by address within county
+        search_term = query.split('\n')[0].strip()
+        search_term = re.sub(r',.*$', '', search_term).strip()  # strip ", City, NC ZIP"
+        search_box = page.locator('input[type="search"], input[placeholder*="search" i]').first
+        if search_box.count() == 0:
+            search_box = page.locator("input[type='text']").first
+        search_box.fill(search_term)
+        page.wait_for_timeout(1000)
+        search_box.press("Enter")
+        page.wait_for_timeout(5000)
+        # If only one result, spatialest auto-navigates to property page
+        # If multiple results, click the first result row (not the nav logo)
+        if "#/property/" not in page.url:
+            result_link = page.locator("a[href*='#/property/']").first
+            if result_link.count() > 0:
+                result_link.click()
+                page.wait_for_timeout(5000)
+        # Extract "Total Appraised Value" from rendered page text
+        # spatialest renders: line="Total Appraised Value", next line="$332,500"
+        body_text = page.inner_text("body")
+        lines = [l.strip() for l in body_text.split("\n") if l.strip()]
+        for i, line in enumerate(lines):
+            if "Total Appraised Value" in line or line == "Total Appraised Value":
+                next_line = lines[i + 1] if i + 1 < len(lines) else ""
+                m = re.search(r'\$?([\d,]+)', next_line)
+                if m:
+                    return float(m.group(1).replace(",", ""))
+            # Fallback: "Total" followed by dollar amount on next line
+            if line == "Total":
+                next_line = lines[i + 1] if i + 1 < len(lines) else ""
+                if "$" in next_line:
+                    m = re.search(r'\$?([\d,]+)', next_line)
+                    if m:
+                        return float(m.group(1).replace(",", ""))
     except Exception as e:
         pass
     return 0
@@ -499,14 +539,19 @@ def _york_lookup(page, address: str) -> float:
 
 def enrich_equity(records: list) -> int:
     """Fill in taxValue + estimatedEquity for foreclosure records missing assessed value.
-    Returns count of records enriched."""
+    Uses address or parcel ID for lookup. Returns count of records enriched."""
     to_enrich = [
         r for r in records
         if r.get("category") in FORECLOSURE_CATS_ENRICH
         and not r.get("taxValue")
-        and r.get("openingBid") or r.get("salePrice")
-        and r.get("address")
-        and "\n" not in r.get("address", "")  # skip foreclosure.com (no house number)
+        and (r.get("openingBid") or r.get("salePrice"))
+        and (r.get("address") or r.get("parcelId"))
+        # Skip foreclosure.com: multiline with no house number AND no parcel ID
+        and not (
+            "\n" in r.get("address", "")
+            and not r.get("parcelId")
+            and not re.match(r'^\d+\s', (r.get("address") or "").split("\n")[0])
+        )
     ]
     if not to_enrich:
         return 0
@@ -523,13 +568,29 @@ def enrich_equity(records: list) -> int:
 
             for r in to_enrich:
                 address = r.get("address", "").strip()
+                parcel_id = r.get("parcelId", "").strip()
                 county = (r.get("county") or "").lower()
                 assessed = 0
 
-                if county in SPATIALEST_COUNTIES:
-                    assessed = _spatialest_lookup(page, address, SPATIALEST_COUNTIES[county])
-                elif county == "york":
-                    assessed = _york_lookup(page, address)
+                first_line = address.split('\n')[0].strip() if address else ""
+                has_house_num = bool(re.match(r'^\d+\s', first_line))
+
+                # For Mecklenburg records without a house number, resolve full address via POLARIS
+                if not has_house_num and parcel_id and county == "mecklenburg":
+                    full_addr = _polaris_address_lookup(page, parcel_id)
+                    if full_addr:
+                        r["address"] = full_addr  # enrich the record with full address
+                        address = full_addr
+                        first_line = full_addr.split(',')[0]
+                        has_house_num = True
+                        print(f"  > resolved parcel {parcel_id} -> {full_addr}")
+
+                search_query = address if has_house_num else (parcel_id or address)
+
+                if county in SPATIALEST_COUNTIES and search_query:
+                    assessed = _spatialest_lookup(page, search_query, SPATIALEST_COUNTIES[county])
+                elif county == "york" and address:
+                    assessed = _york_lookup(page, first_line or address)
 
                 if assessed > 0:
                     bid = parse_money(r.get("openingBid") or r.get("salePrice") or 0)
@@ -538,7 +599,8 @@ def enrich_equity(records: list) -> int:
                         equity_pct = (assessed - bid) / assessed * 100
                         r["estimatedEquity"] = f"{equity_pct:.0f}%"
                     enriched += 1
-                    print(f"  ✓ {address[:50]} | assessed=${assessed:,.0f} | equity={r.get('estimatedEquity','?')}")
+                    label = first_line or parcel_id
+                    print(f"  OK {label[:50]} | assessed=${assessed:,.0f} | equity={r.get('estimatedEquity','?')}")
 
             context.close()
             browser.close()

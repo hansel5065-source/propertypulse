@@ -1142,6 +1142,13 @@ body {
   background: var(--green-bg);
   color: var(--green);
 }
+.top-deal-btn-map {
+  background: var(--bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--border) !important;
+  font-size: 14px;
+  padding: 4px 8px;
+}
 
 /* Load more */
 .load-more {
@@ -1348,6 +1355,22 @@ body {
 .deadline-countdown.urgent { background: var(--red-bg); color: var(--red); }
 .deadline-countdown.soon { background: var(--orange-bg); color: var(--orange); }
 .deadline-countdown.ok { background: var(--green-bg); color: var(--green); }
+
+.deadline-map-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+.deadline-map-btn:hover { background: var(--bg-card-hover); border-color: var(--accent); }
 
 /* ============================================
    SKELETON LOADING
@@ -1852,6 +1875,7 @@ body {
   <div class="filter-section">
     <div class="filter-label">Show</div>
     <div class="filter-row" id="scoreFilters">
+      <button class="chip" data-score="top10">&#128293; Top 10</button>
       <button class="chip active" data-score="quality">&#11088; Quality only</button>
       <button class="chip" data-score="all">All</button>
       <button class="chip" data-score="edge60" style="display:none">&#128293; Edge 60+</button>
@@ -2749,6 +2773,15 @@ function setActiveCategory(cat) {
   localStorage.setItem('pp_category', activeCategory);
   // Reset "Show all" state when switching tabs — top 10 again
   showAllInCategory = false;
+  // If user switches category while in global Top-10 mode, drop back to Quality
+  // so the per-category top 10 actually renders instead of the global one.
+  if (activeScore === 'top10') {
+    activeScore = 'quality';
+    localStorage.setItem('pp_score', activeScore);
+    document.querySelectorAll('#scoreFilters .chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.score === 'quality');
+    });
+  }
   // Sync category chip row
   document.querySelectorAll('#categoryFilters .chip').forEach(c => {
     c.classList.toggle('active', c.dataset.category === activeCategory);
@@ -3244,6 +3277,7 @@ function renderDashboard() {
         <div class="top-deal-meta">${item.county} &middot; ${formatCategory(item.category)} &middot; ${item.taxValue || 'No value'}</div>
       </div>
       <div class="top-deal-actions">
+        <button class="top-deal-btn top-deal-btn-map" onclick="event.stopPropagation();window.open('${item.mapUrl || googleMapsUrl(item)}','_blank')" title="Open in Google Maps">&#128205;</button>
         ${isPdfReady
           ? `<button class="top-deal-btn top-deal-btn-pdf" onclick="viewPdf('${item.pdfSlug}')">&#128196; PDF</button>`
           : isRunning
@@ -3455,9 +3489,10 @@ function buildPropertyCard(item) {
       ${item.yearsOwned ? `<div class="detail-item"><span class="detail-label">Owned</span><span class="detail-value">${item.yearsOwned}</span></div>` : ''}
       ${(() => {
         // Compute equity for categories where the math is meaningful.
-        // Falls back to the raw estimatedEquity string for other categories.
+        // 'assessed' mode = just market value with no lien subtracted, so we
+        // show it as "Market Value" not "Equity" to avoid misleading users.
         const eq = computeEquity(item);
-        if (eq) {
+        if (eq && eq.mode !== 'assessed') {
           const modeHint = eq.mode === 'explicit' ? 'source' :
                            eq.mode === 'spread_lb' ? 'Mkt - Loan' :
                            eq.mode === 'spread_sp' ? 'Mkt - Bid' :
@@ -3465,6 +3500,12 @@ function buildPropertyCard(item) {
           return `<div class="detail-item" title="Equity mode: ${modeHint}">
             <span class="detail-label">Equity${eq.pct != null ? ` (${eq.pct}%)` : ''}</span>
             <span class="detail-value" style="color:var(--green);font-weight:600">$${Math.round(eq.value).toLocaleString()}</span>
+          </div>`;
+        }
+        if (eq && eq.mode === 'assessed') {
+          return `<div class="detail-item" title="Market value only — loan balance not available, so this is not true equity">
+            <span class="detail-label">Mkt Value</span>
+            <span class="detail-value" style="color:var(--text-muted);font-weight:600">$${Math.round(eq.value).toLocaleString()}</span>
           </div>`;
         }
         return item.estimatedEquity
@@ -3586,6 +3627,39 @@ function renderLeads(reset = false) {
   // We drive our own pagination here; hide the generic Load More button.
   if (loadMore) loadMore.style.display = 'none';
   list.innerHTML = '';
+
+  // GLOBAL TOP 10 MODE — single flat list of the 10 highest-edge leads across
+  // all categories. Triggered by the "Top 10" chip in the Show filter row.
+  if (activeScore === 'top10') {
+    const titleEl = document.getElementById('leadsCategoryTitle');
+    const subEl   = document.getElementById('leadsCategorySub');
+    if (titleEl) titleEl.innerHTML = '&#128293; Top 10';
+    const top = allData
+      .filter(item => {
+        if (activeCounty !== 'all' && (item.county || '').toLowerCase() !== activeCounty.toLowerCase()) return false;
+        if (!isQualityLead(item)) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const hay = `${item.address||''} ${item.ownerName||''} ${item.parcelId||''} ${item.city||''}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || ((b.score || 0) - (a.score || 0)))
+      .slice(0, 10);
+    if (subEl) subEl.textContent = `Top ${top.length} across all categories`;
+    if (top.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">&#128269;</div>
+          <h3>No top leads found</h3>
+          <p>Try clearing the County or search filter.</p>
+        </div>`;
+      return;
+    }
+    top.forEach(item => list.appendChild(buildPropertyCard(item)));
+    return;
+  }
 
   // Update category header (title at top of page)
   const titleEl = document.getElementById('leadsCategoryTitle');
@@ -4139,6 +4213,7 @@ function renderDeadlines() {
       else if (days <= 7) cdClass = 'urgent';
       else if (days <= 30) cdClass = 'soon';
 
+      const mapHref = item.mapUrl || googleMapsUrl(item);
       html += `
         <div class="deadline-item">
           <div class="deadline-date-box">
@@ -4150,6 +4225,7 @@ function renderDeadlines() {
             <div class="deadline-address">${item.address}</div>
             <div class="deadline-meta">${item.county} &middot; ${formatCategory(item.category)} &middot; ${formatPrice(item.salePrice)}</div>
           </div>
+          <button class="deadline-map-btn" onclick="event.stopPropagation();window.open('${mapHref}','_blank')" title="Open in Google Maps" aria-label="Open in Google Maps">&#128205;</button>
           <span class="deadline-countdown ${cdClass}">${cdText}</span>
         </div>`;
     });
@@ -4247,11 +4323,17 @@ function renderEquity() {
       const sp = parseEquity(item.salePrice);
       let mode = 'estimated';
       if (!eq && mkt > 0 && lb > 0) { eq = mkt - lb; mode = 'spread'; }
-      else if (!eq && mkt > 0 && sp > 0) { eq = mkt - sp; mode = 'spread'; }
+      else if (!eq && mkt > 0 && sp > 0 && sp < mkt) { eq = mkt - sp; mode = 'spread'; }
       else if (!eq && mkt > 0) { eq = mkt; mode = 'assessed'; }
       if (!eqPct && mkt > 0 && eq > 0) eqPct = Math.round((eq / mkt) * 100);
       return { ...item, _eq: eq, _eqMode: mode, _eqPct: eqPct };
-    }).filter(i => i._eq > 0);
+    })
+    // DATA QUALITY: only keep items with a real equity calc (explicit % or
+    // Market - SalePrice spread). 'assessed' mode = just market value, no
+    // lien subtracted, which is misleading. Our scrape doesn't yet capture
+    // loanBalance, so we'd otherwise rank 1000s of items by full assessed
+    // value and call it "equity". Filter those out here.
+    .filter(i => i._eq > 0 && i._eqMode !== 'assessed');
 
   // Apply filters
   if (equityRangeFilter !== 'all') {
@@ -4281,8 +4363,9 @@ function renderEquity() {
     summary.textContent = '';
     list.innerHTML = `<div class="empty-state">
       <div class="empty-state-icon">&#128176;</div>
-      <h3>No assessed value data available</h3>
-      <p>Equity is estimated from assessed value. Run the weekly scraper to refresh data.</p>
+      <h3>No equity data available</h3>
+      <p>Equity ranking requires either an explicit equity % from the source or a Market Value &minus; Sale Price spread. Loan balance isn't in our current scrape, so most listings can't be ranked here yet.</p>
+      <p style="margin-top:8px;font-size:12px">Try the Auction tab — those listings have a current bid that powers a real equity spread.</p>
     </div>`;
     return;
   }
@@ -4433,6 +4516,14 @@ function initEvents() {
         activeCategory = cat;
         localStorage.setItem('pp_category', cat);
         showAllInCategory = false;
+        // Drop global Top 10 mode if active — user wants this category, not global.
+        if (activeScore === 'top10') {
+          activeScore = 'quality';
+          localStorage.setItem('pp_score', activeScore);
+          document.querySelectorAll('#scoreFilters .chip').forEach(c => {
+            c.classList.toggle('active', c.dataset.score === 'quality');
+          });
+        }
         applyFilters();
         renderLeads(true);
       }

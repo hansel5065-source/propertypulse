@@ -829,6 +829,36 @@ body {
   background: var(--accent-glow);
 }
 
+/* "More" page — tile grid for overflow nav items */
+.more-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 4px 0 24px;
+}
+.more-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px;
+  background: var(--bg-card, rgba(100,116,139,0.06));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.more-tile:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.more-icon { font-size: 22px; line-height: 1; }
+.more-label { font-size: 14px; font-weight: 700; }
+.more-sub { font-size: 11px; color: var(--text-muted); }
+
 /* Category digest view (All tab) — one section per category */
 .cat-section {
   margin: 16px 0 20px;
@@ -1739,8 +1769,9 @@ body {
 
 <!-- ===================== LEADS PAGE ===================== -->
 <section class="page" id="pageLeads" aria-label="Leads">
-  <!-- Category tab bar — prominent tabs, one per major category. Each tab defaults to top 10. -->
-  <div class="cat-tabs" id="catTabs" role="tablist" style="display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;margin-bottom:6px;border-bottom:1px solid var(--border);scrollbar-width:none">
+  <!-- Category tab bar — HIDDEN now that the bottom nav is the category picker.
+       Kept in DOM so existing event wiring + count updates don't error out. -->
+  <div class="cat-tabs" id="catTabs" role="tablist" style="display:none;gap:6px;overflow-x:auto;padding:4px 0 10px;margin-bottom:6px;border-bottom:1px solid var(--border);scrollbar-width:none">
     <button class="cat-tab active" data-cattab="all" role="tab">
       <span class="cat-tab-label">&#128293; Top Picks</span><span class="cat-tab-count" id="cat-count-all">0</span>
     </button>
@@ -1768,6 +1799,12 @@ body {
     <button class="cat-tab" data-cattab="short_sale" role="tab">
       <span class="cat-tab-label">&#127974; Short Sale</span><span class="cat-tab-count" id="cat-count-short_sale">0</span>
     </button>
+  </div>
+
+  <!-- Category title — shows which category this page is currently rendering -->
+  <div id="leadsCategoryHeader" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0 6px;margin-bottom:4px">
+    <h2 id="leadsCategoryTitle" style="margin:0;font-size:20px;font-weight:800;display:flex;align-items:center;gap:8px">Top Picks</h2>
+    <span id="leadsCategorySub" style="font-size:12px;color:var(--text-muted)">0 leads</span>
   </div>
 
   <div class="search-container">
@@ -1810,17 +1847,19 @@ body {
     </div>
   </div>
 
+  <!-- Score filter — simplified to Quality toggle + All. Raw Edge tiers
+       hidden (still available in the DOM for deep-link/localStorage state). -->
   <div class="filter-section">
-    <div class="filter-label">Score</div>
+    <div class="filter-label">Show</div>
     <div class="filter-row" id="scoreFilters">
-      <button class="chip active" data-score="quality">&#11088; Quality</button>
-      <button class="chip" data-score="all">All (raw)</button>
-      <button class="chip" data-score="edge60">&#128293; Edge 60+</button>
-      <button class="chip" data-score="edge45">&#9889; Edge 45+</button>
-      <button class="chip" data-score="edge30">Edge 30+</button>
-      <button class="chip" data-score="hot">Legacy 4+</button>
-      <button class="chip" data-score="warm">Legacy 2-3</button>
-      <button class="chip" data-score="cool">Legacy 0-1</button>
+      <button class="chip active" data-score="quality">&#11088; Quality only</button>
+      <button class="chip" data-score="all">All</button>
+      <button class="chip" data-score="edge60" style="display:none">&#128293; Edge 60+</button>
+      <button class="chip" data-score="edge45" style="display:none">&#9889; Edge 45+</button>
+      <button class="chip" data-score="edge30" style="display:none">Edge 30+</button>
+      <button class="chip" data-score="hot" style="display:none">Legacy 4+</button>
+      <button class="chip" data-score="warm" style="display:none">Legacy 2-3</button>
+      <button class="chip" data-score="cool" style="display:none">Legacy 0-1</button>
     </div>
   </div>
 
@@ -2220,39 +2259,83 @@ body {
 <!-- ===================== BOTTOM NAV ===================== -->
 <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
   <div class="nav-items">
-    <button class="nav-item active" data-tab="pageDashboard" aria-label="Dashboard">
+    <button class="nav-item active" data-tab="pageDashboard" aria-label="Home">
       <span class="nav-icon">&#127968;</span>
       <span class="nav-label">Home</span>
     </button>
-    <button class="nav-item" data-tab="pageLeads" aria-label="Leads">
-      <span class="nav-icon">
-        &#128203;
-        <span class="nav-badge hidden" id="leadsBadge"></span>
-      </span>
-      <span class="nav-label">Leads</span>
+    <button class="nav-item" data-tab="pageLeads" data-category="preforeclosure" aria-label="Pre-Foreclosure">
+      <span class="nav-icon">&#128640;</span>
+      <span class="nav-label">Pre-FC</span>
     </button>
-    <button class="nav-item" data-tab="pageMap" aria-label="Map">
-      <span class="nav-icon">&#128205;</span>
-      <span class="nav-label">Map</span>
+    <button class="nav-item" data-tab="pageLeads" data-category="foreclosure" aria-label="Foreclosure">
+      <span class="nav-icon">&#9878;</span>
+      <span class="nav-label">Forecl.</span>
+    </button>
+    <button class="nav-item" data-tab="pageLeads" data-category="tax_foreclosure" aria-label="Tax Foreclosure">
+      <span class="nav-icon">&#127963;</span>
+      <span class="nav-label">Tax FC</span>
     </button>
     <button class="nav-item" data-tab="pageTaxDelinquent" aria-label="Tax Delinquent">
-      <span class="nav-icon">&#127968;</span>
+      <span class="nav-icon">&#128176;</span>
       <span class="nav-label">Tax Delinq.</span>
     </button>
-    <button class="nav-item" data-tab="pageDeadlines" aria-label="Deadlines">
-      <span class="nav-icon">&#128197;</span>
-      <span class="nav-label">Dates</span>
-    </button>
-    <button class="nav-item" data-tab="pageStrategy" aria-label="Strategy">
+    <button class="nav-item" data-tab="pageLeads" data-category="bankruptcy" aria-label="Bankruptcy">
       <span class="nav-icon">&#128188;</span>
-      <span class="nav-label">Strategy</span>
+      <span class="nav-label">Bankr.</span>
     </button>
-    <button class="nav-item" data-tab="pageEquity" aria-label="Equity">
-      <span class="nav-icon">&#128176;</span>
-      <span class="nav-label">Equity</span>
+    <button class="nav-item" data-tab="pageMore" aria-label="More">
+      <span class="nav-icon">&#8942;</span>
+      <span class="nav-label">More</span>
     </button>
   </div>
 </nav>
+
+<!-- More page: overflow for secondary tools -->
+<section class="page" id="pageMore" aria-label="More">
+  <h2 class="section-title" style="margin:12px 0">More</h2>
+  <div class="more-grid">
+    <button class="more-tile" data-goto="pageLeads" data-gocat="auction">
+      <span class="more-icon">&#128299;</span>
+      <span class="more-label">Auction</span>
+      <span class="more-sub">Live sale bids</span>
+    </button>
+    <button class="more-tile" data-goto="pageLeads" data-gocat="lis_pendens">
+      <span class="more-icon">&#128220;</span>
+      <span class="more-label">Lis Pendens</span>
+      <span class="more-sub">Suits filed</span>
+    </button>
+    <button class="more-tile" data-goto="pageLeads" data-gocat="short_sale">
+      <span class="more-icon">&#127974;</span>
+      <span class="more-label">Short Sale</span>
+      <span class="more-sub">Below-mortgage</span>
+    </button>
+    <button class="more-tile" data-goto="pageLeads" data-gocat="all">
+      <span class="more-icon">&#128293;</span>
+      <span class="more-label">Top Picks</span>
+      <span class="more-sub">All categories</span>
+    </button>
+    <button class="more-tile" data-goto="pageMap">
+      <span class="more-icon">&#128205;</span>
+      <span class="more-label">Map</span>
+      <span class="more-sub">Geographic view</span>
+    </button>
+    <button class="more-tile" data-goto="pageDeadlines">
+      <span class="more-icon">&#128197;</span>
+      <span class="more-label">Dates</span>
+      <span class="more-sub">Deadlines</span>
+    </button>
+    <button class="more-tile" data-goto="pageStrategy">
+      <span class="more-icon">&#128188;</span>
+      <span class="more-label">Strategy</span>
+      <span class="more-sub">Playbooks</span>
+    </button>
+    <button class="more-tile" data-goto="pageEquity">
+      <span class="more-icon">&#127942;</span>
+      <span class="more-label">Equity</span>
+      <span class="more-sub">Foreclosure equity ranker</span>
+    </button>
+  </div>
+</section>
 
 <script>
 // ===== CONFIGURATION =====
@@ -2858,14 +2941,25 @@ function switchTab(tabId) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
   const page = document.getElementById(tabId);
-  const nav = document.querySelector(`[data-tab="${tabId}"]`);
   if (page) {
     page.classList.add('active');
     requestAnimationFrame(() => {
       requestAnimationFrame(() => page.classList.add('visible'));
     });
   }
-  if (nav) nav.classList.add('active');
+
+  // Multiple nav items now share data-tab="pageLeads" (Pre-FC / Forecl. / Tax FC / Bankr.).
+  // Pick the one that matches both the target tab AND the current activeCategory.
+  const navMatches = document.querySelectorAll(`[data-tab="${tabId}"]`);
+  let navActive = null;
+  if (tabId === 'pageLeads') {
+    navActive = Array.from(navMatches).find(n => n.dataset.category === activeCategory)
+             || Array.from(navMatches).find(n => !n.dataset.category)  // fall back to generic
+             || navMatches[0];
+  } else {
+    navActive = navMatches[0];
+  }
+  if (navActive) navActive.classList.add('active');
 
   activeTab = tabId;
   localStorage.setItem('pp_activeTab', tabId);
@@ -3466,6 +3560,26 @@ function renderLeads(reset = false) {
   // We drive our own pagination here; hide the generic Load More button.
   if (loadMore) loadMore.style.display = 'none';
   list.innerHTML = '';
+
+  // Update category header (title at top of page)
+  const titleEl = document.getElementById('leadsCategoryTitle');
+  const subEl = document.getElementById('leadsCategorySub');
+  if (titleEl) {
+    const catMeta = DIGEST_CATEGORIES.find(c => c.key === activeCategory);
+    if (activeCategory === 'all') {
+      titleEl.innerHTML = '&#128293; Top Picks';
+    } else if (catMeta) {
+      titleEl.innerHTML = `${catMeta.icon} ${catMeta.label}`;
+    } else {
+      titleEl.textContent = formatCategory(activeCategory);
+    }
+  }
+  if (subEl) {
+    const count = activeCategory === 'all'
+      ? DIGEST_CATEGORIES.reduce((s, c) => s + poolForCategory(c.key).length, 0)
+      : poolForCategory(activeCategory).length;
+    subEl.textContent = `${count} lead${count !== 1 ? 's' : ''}`;
+  }
 
   // DIGEST VIEW — "Top Picks" tab: top 10 per category, each with "See all ->".
   if (activeCategory === 'all') {
@@ -4232,9 +4346,38 @@ function initEvents() {
   // Theme toggle
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
-  // Navigation
+  // Navigation — nav-items with data-category pre-select that category tab
+  // when opening the Leads page. This is how bottom-nav = category tabs.
   document.querySelectorAll('.nav-item').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    btn.addEventListener('click', () => {
+      const cat = btn.dataset.category;
+      if (cat && btn.dataset.tab === 'pageLeads') {
+        // Pre-select the category before switching to pageLeads so the
+        // top-10 render matches the tab the user tapped.
+        activeCategory = cat;
+        localStorage.setItem('pp_category', cat);
+        showAllInCategory = false;
+        applyFilters();
+        renderLeads(true);
+      }
+      switchTab(btn.dataset.tab);
+    });
+  });
+
+  // "More" tile grid — each tile jumps to a secondary page (with optional
+  // pre-set category for pageLeads).
+  document.querySelectorAll('.more-tile').forEach(tile => {
+    tile.addEventListener('click', () => {
+      const cat = tile.dataset.gocat;
+      if (cat && tile.dataset.goto === 'pageLeads') {
+        activeCategory = cat;
+        localStorage.setItem('pp_category', cat);
+        showAllInCategory = false;
+        applyFilters();
+        renderLeads(true);
+      }
+      switchTab(tile.dataset.goto);
+    });
   });
 
   // Search

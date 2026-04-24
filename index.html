@@ -1653,6 +1653,7 @@ body {
     <div class="filter-label">Category</div>
     <div class="filter-row" id="categoryFilters" style="flex-wrap:wrap">
       <button class="chip active" data-category="all">All</button>
+      <button class="chip" data-category="preforeclosure">Pre-Forecl.</button>
       <button class="chip" data-category="foreclosure">Foreclosure</button>
       <button class="chip" data-category="tax_foreclosure">Tax Forecl.</button>
       <button class="chip" data-category="tax_delinquent">Tax Delinq.</button>
@@ -1660,6 +1661,8 @@ body {
       <button class="chip" data-category="auction">Auction</button>
       <button class="chip" data-category="master_sale">Master Sale</button>
       <button class="chip" data-category="tax_sale">Tax Sale</button>
+      <button class="chip" data-category="short_sale">Short Sale</button>
+      <button class="chip" data-category="bankruptcy">Bankruptcy</button>
       <button class="chip" data-category="probate">Probate</button>
       <button class="chip" data-category="county_sale">County Sale</button>
       <button class="chip" data-category="irs_lien">IRS Lien</button>
@@ -1684,16 +1687,20 @@ body {
     <div class="filter-label">Score</div>
     <div class="filter-row" id="scoreFilters">
       <button class="chip active" data-score="all">All</button>
-      <button class="chip" data-score="hot">&#128293; Hot 4+</button>
-      <button class="chip" data-score="warm">&#127777; Warm 2-3</button>
-      <button class="chip" data-score="cool">Cool 0-1</button>
+      <button class="chip" data-score="edge60">&#128293; Edge 60+</button>
+      <button class="chip" data-score="edge45">&#9889; Edge 45+</button>
+      <button class="chip" data-score="edge30">Edge 30+</button>
+      <button class="chip" data-score="hot">Legacy 4+</button>
+      <button class="chip" data-score="warm">Legacy 2-3</button>
+      <button class="chip" data-score="cool">Legacy 0-1</button>
     </div>
   </div>
 
   <div class="sort-bar">
     <span id="leadCount">0 leads</span>
     <div class="sort-options">
-      <button class="sort-btn active" data-sort="score">Score</button>
+      <button class="sort-btn active" data-sort="edge">Edge</button>
+      <button class="sort-btn" data-sort="score">Score</button>
       <button class="sort-btn" data-sort="date">Date</button>
       <button class="sort-btn" data-sort="price">Price</button>
       <button class="sort-btn" data-sort="equity">Equity</button>
@@ -1712,6 +1719,8 @@ body {
   <div class="map-controls">
     <div class="filter-row" id="mapCategoryFilter">
       <button class="chip active" data-mapcat="all">All</button>
+      <button class="chip" data-mapcat="edge45">&#9889; Edge 45+</button>
+      <button class="chip" data-mapcat="preforeclosure">Pre-FC</button>
       <button class="chip" data-mapcat="foreclosure">Foreclosure</button>
       <button class="chip" data-mapcat="auction">Auction</button>
       <button class="chip" data-mapcat="tax_delinquent">Tax Delinq</button>
@@ -1796,11 +1805,13 @@ body {
       <div class="filter-label">Type</div>
       <div class="filter-row" id="equityCategoryFilters">
         <button class="chip active" data-eqcat="all">All</button>
+        <button class="chip" data-eqcat="preforeclosure">Pre-FC</button>
         <button class="chip" data-eqcat="foreclosure">Mortgage</button>
         <button class="chip" data-eqcat="hoa_foreclosure">HOA</button>
         <button class="chip" data-eqcat="tax_foreclosure">Tax FC</button>
         <button class="chip" data-eqcat="master_sale">Master Sale</button>
         <button class="chip" data-eqcat="auction">Auction</button>
+        <button class="chip" data-eqcat="short_sale">Short Sale</button>
       </div>
     </div>
 
@@ -2177,7 +2188,7 @@ let activeCounty = localStorage.getItem('pp_county') || 'all';
 let activeCategory = localStorage.getItem('pp_category') || 'all';
 let activeDistress = localStorage.getItem('pp_distress') || 'all';
 let activeScore = localStorage.getItem('pp_score') || 'all';
-let activeSort = localStorage.getItem('pp_sort') || 'score';
+let activeSort = localStorage.getItem('pp_sort') || 'edge';
 
 const DISTRESS_MAP = {
   active_sale: ['auction','tax_foreclosure','foreclosure','hoa_foreclosure','master_sale','county_sale'],
@@ -2312,6 +2323,16 @@ function normalizeRow(row) {
     plaintiff: get(['plaintiff', 'Plaintiff', 'attorney']),
     distressLevel: get(['distressLevel', 'distress_level']),
     score: parseInt(get(['Investment Score', 'score', 'Score', 'Priority'])) || 0,
+    edgeScore: parseInt(get(['edgeScore', 'edge_score', 'Edge Score'])) || 0,
+    listingSubtype: get(['listingSubtype', 'listing_subtype']),
+    listingId: get(['listingId', 'listing_id']),
+    emv: get(['emv', 'EMV', 'estimatedMarketValue', 'Est Market Value']),
+    estRent: get(['estRent', 'estimated_rent', 'Est Rent']),
+    isNewListing: (() => {
+      const v = get(['isNewListing', 'is_new_listing', 'New']);
+      return v === true || v === 'true' || v === '1' || v === 'yes' || v === 'Yes';
+    })(),
+    playbook: get(['playbook', 'Playbook', 'action_hint']),
     urgentFlag: get(['Urgent Flag', 'urgentFlag', 'urgent_flag']),
     ownerMailingAddr: get(['Owner Mailing Addr', 'ownerMailingAddr']),
     daysOnMarket: get(['Days on Market', 'daysOnMarket']),
@@ -2522,7 +2543,10 @@ const CATEGORY_LABELS = {
   auction: 'Auction', tax_sale: 'Tax Sale', county_sale: 'County Sale',
   lis_pendens: 'Lis Pendens', hoa_lien: 'HOA Lien', irs_lien: 'IRS Lien',
   mechanic_lien: 'Mechanic Lien', tax_delinquent: 'Tax Delinquent',
-  probate: 'Probate', reo: 'REO', other: 'Other'
+  probate: 'Probate', reo: 'REO', other: 'Other',
+  preforeclosure: 'Pre-Foreclosure', short_sale: 'Short Sale',
+  bankruptcy: 'Bankruptcy', tax_lien: 'Tax Lien', fsbo: 'FSBO',
+  rent_to_own: 'Rent to Own'
 };
 function formatCategory(cat) {
   if (!cat) return 'Other';
@@ -2681,6 +2705,9 @@ function applyFilters() {
     }
 
     // Score filter
+    if (activeScore === 'edge60' && (item.edgeScore || 0) < 60) return false;
+    if (activeScore === 'edge45' && (item.edgeScore || 0) < 45) return false;
+    if (activeScore === 'edge30' && (item.edgeScore || 0) < 30) return false;
     if (activeScore === 'hot' && item.score < 4) return false;
     if (activeScore === 'warm' && (item.score < 2 || item.score > 3)) return false;
     if (activeScore === 'cool' && item.score > 1) return false;
@@ -2697,6 +2724,7 @@ function applyFilters() {
 
   // Sort
   filteredData.sort((a, b) => {
+    if (activeSort === 'edge') return ((b.edgeScore || 0) - (a.edgeScore || 0)) || ((b.score || 0) - (a.score || 0));
     if (activeSort === 'score') return b.score - a.score;
     if (activeSort === 'date') return daysUntil(a.saleDate) - daysUntil(b.saleDate);
     if (activeSort === 'price') {
@@ -2735,11 +2763,13 @@ function applyFilters() {
 function renderDashboard() {
   // Stats
   const totalLeads = allData.length;
-  const FORECLOSURE_CATS = new Set(['foreclosure','tax_foreclosure','hoa_foreclosure','master_sale','auction']);
+  const FORECLOSURE_CATS = new Set(['foreclosure','tax_foreclosure','hoa_foreclosure','master_sale','auction','preforeclosure','lis_pendens','tax_sale','tax_lien','short_sale','county_sale']);
   const hotLeads = allData.filter(d => {
     if (!FORECLOSURE_CATS.has(d.category)) return false;
     const days = daysUntil(d.saleDate);
-    return days !== Infinity && days >= 0 && days <= 30;
+    // Count anything with imminent sale date OR high edge score as "hot"
+    if (days !== Infinity && days >= 0 && days <= 30) return true;
+    return (d.edgeScore || 0) >= 45;
   }).length;
   const counties = [...new Set(allData.map(d => d.county).filter(Boolean))].length;
   const sources = [...new Set(allData.map(d => d.source).filter(Boolean))].length;
@@ -2858,15 +2888,26 @@ function renderDashboard() {
       </div>`;
   }).join('');
 
-  // Hot leads — active foreclosures with sale date within 30 days, sorted soonest first
-  const hotList = [...allData]
+  // Hot leads — imminent sale-date foreclosures, then fill with top edgeScore preforeclosures/liens
+  const imminent = [...allData]
     .filter(d => {
       if (!FORECLOSURE_CATS.has(d.category)) return false;
       const days = daysUntil(d.saleDate);
       return days !== Infinity && days >= 0 && days <= 30;
     })
-    .sort((a, b) => daysUntil(a.saleDate) - daysUntil(b.saleDate))
-    .slice(0, 5);
+    .sort((a, b) => daysUntil(a.saleDate) - daysUntil(b.saleDate));
+  const byEdge = [...allData]
+    .filter(d => FORECLOSURE_CATS.has(d.category) && (d.edgeScore || 0) > 0)
+    .sort((a, b) => (b.edgeScore || 0) - (a.edgeScore || 0));
+  const seen = new Set();
+  const hotList = [];
+  for (const it of [...imminent, ...byEdge]) {
+    if (hotList.length >= 5) break;
+    const key = it.pdfSlug || it.address;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    hotList.push(it);
+  }
   document.getElementById('hotLeadsList').innerHTML = hotList.map(item => {
     const action = getActionStep(item);
     const days = daysUntil(item.saleDate);
@@ -2883,8 +2924,11 @@ function renderDashboard() {
     </div>`;
   }).join('');
 
-  // Top Deals — score 7+ sorted by score, show analyze/pdf buttons
-  const topDeals = [...allData].filter(d => d.score >= 7).sort((a, b) => b.score - a.score).slice(0, 10);
+  // Top Deals — ranked by edgeScore (new 0-100 scale) with legacy score as tiebreaker
+  const topDeals = [...allData]
+    .filter(d => (d.edgeScore || 0) >= 30 || (d.score || 0) >= 7)
+    .sort((a, b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || ((b.score || 0) - (a.score || 0)))
+    .slice(0, 10);
   const topGrid = document.getElementById('topDealsGrid');
   if (!topGrid) return;
   if (topDeals.length === 0) {
@@ -3082,16 +3126,23 @@ function renderLeads(reset = false) {
 
     const card = document.createElement('div');
     card.className = 'property-card';
+    const edge = item.edgeScore || 0;
+    const edgeColor = edge >= 60 ? 'var(--red)' : edge >= 45 ? 'var(--orange)' : edge >= 30 ? 'var(--cyan)' : 'var(--text-muted)';
+    const edgeBg = edge >= 60 ? 'rgba(239,68,68,0.12)' : edge >= 45 ? 'rgba(245,158,11,0.12)' : edge >= 30 ? 'rgba(6,182,212,0.12)' : 'rgba(100,116,139,0.08)';
     card.innerHTML = `
       <div class="card-top">
         <div>
-          <div class="card-address">${item.address}</div>
+          <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}</div>
           <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
         </div>
-        <div class="score-badge ${getScoreClass(item.score)}" title="Score: ${item.score}/10">${item.score}</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+          ${edge > 0 ? `<div title="Edge Score: opportunity \u00d7 urgency (0-100)" style="background:${edgeBg};color:${edgeColor};font-size:13px;font-weight:700;padding:3px 9px;border-radius:6px;line-height:1;min-width:34px;text-align:center">${edge}</div>` : ''}
+          <div class="score-badge ${getScoreClass(item.score)}" title="Legacy Score: ${item.score}/10" style="font-size:10px;padding:2px 6px;border-radius:5px;min-width:22px;text-align:center">${item.score}</div>
+        </div>
       </div>
       <div class="card-pills">
         <span class="pill ${getCategoryClass(item.category)}">${formatCategory(item.category)}</span>
+        ${item.listingSubtype && item.listingSubtype !== item.category ? `<span class="pill" style="background:rgba(99,102,241,0.12);color:#6366F1">${formatCategory(item.listingSubtype)}</span>` : ''}
         <span class="pill pill-county">${item.county || 'Unknown'}</span>
         ${getDistressBadge(item)}
         ${item.propertyType ? `<span class="pill" style="background:var(--purple-bg);color:var(--purple)">${item.propertyType}</span>` : ''}
@@ -3106,10 +3157,12 @@ function renderLeads(reset = false) {
           <span class="detail-label">Bid / Price</span>
           <span class="detail-value">${formatPrice(item.salePrice)}</span>
         </div>
+        ${item.emv ? `<div class="detail-item"><span class="detail-label">Market Value</span><span class="detail-value" style="color:var(--green);font-weight:600">${formatPrice(item.emv)}</span></div>` : ''}
         <div class="detail-item">
           <span class="detail-label">Assessed</span>
           <span class="detail-value">${formatPrice(item.taxValue)}</span>
         </div>
+        ${item.estRent ? `<div class="detail-item"><span class="detail-label">Est Rent</span><span class="detail-value" style="color:var(--cyan)">${formatPrice(item.estRent)}/mo</span></div>` : ''}
         ${item.beds || item.baths ? `<div class="detail-item"><span class="detail-label">Bed/Bath</span><span class="detail-value">${item.beds || '-'}/${item.baths || '-'}</span></div>` : ''}
         ${item.sqft ? `<div class="detail-item"><span class="detail-label">Sq Ft</span><span class="detail-value">${Number(item.sqft).toLocaleString()}</span></div>` : ''}
         ${item.yearsOwned ? `<div class="detail-item"><span class="detail-label">Owned</span><span class="detail-value">${item.yearsOwned}</span></div>` : ''}
@@ -3117,6 +3170,7 @@ function renderLeads(reset = false) {
         ${item.loanBalance ? `<div class="detail-item"><span class="detail-label">Loan Balance</span><span class="detail-value">${item.loanBalance}</span></div>` : ''}
         ${item.estArv ? `<div class="detail-item"><span class="detail-label">Est ARV</span><span class="detail-value">${formatPrice(item.estArv)}</span></div>` : ''}
       </div>
+      ${item.playbook ? `<div style="padding:0 16px 8px;font-size:11px;color:#6366F1;line-height:1.4;font-style:italic">${item.playbook}</div>` : ''}
       ${item.notes ? `<div class="card-notes" style="padding:0 16px 8px;font-size:12px;color:var(--text-muted);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.notes}</div>` : ''}
       ${item.source ? `<div style="padding:0 16px 8px;font-size:11px;color:var(--text-muted)">Source: ${item.source}</div>` : ''}
       <div style="padding:0 16px 10px;font-size:12px;color:var(--accent);font-weight:500">Next: ${getActionStep(item)}</div>
@@ -3513,7 +3567,7 @@ function yearsOwnedNum(str) {
   return m ? parseInt(m[1]) : 0;
 }
 
-const FORECLOSURE_CATS = new Set(['foreclosure','tax_foreclosure','hoa_foreclosure','master_sale','auction','tax_sale','county_sale']);
+const FORECLOSURE_CATS = new Set(['foreclosure','tax_foreclosure','hoa_foreclosure','master_sale','auction','tax_sale','county_sale','preforeclosure','lis_pendens','short_sale','tax_lien']);
 
 function renderEquity() {
   // Track 1: foreclosure types only, sorted by equity %
@@ -3526,14 +3580,16 @@ function renderEquity() {
         eqPct = parseFloat(item.estimatedEquity);
       }
       let eq = parseEquity(item.estimatedEquity);
+      // Use EMV (market value from foreclosure.com) first, fall back to taxValue
+      const mkt = parseEquity(item.emv) || parseEquity(item.taxValue);
       const tv = parseEquity(item.taxValue);
       const lb = parseEquity(item.loanBalance);
       const sp = parseEquity(item.salePrice);
       let mode = 'estimated';
-      if (!eq && tv > 0 && lb > 0) { eq = tv - lb; mode = 'spread'; }
-      else if (!eq && tv > 0 && sp > 0) { eq = tv - sp; mode = 'spread'; }
-      else if (!eq && tv > 0) { eq = tv; mode = 'assessed'; }
-      if (!eqPct && tv > 0 && eq > 0) eqPct = Math.round((eq / tv) * 100);
+      if (!eq && mkt > 0 && lb > 0) { eq = mkt - lb; mode = 'spread'; }
+      else if (!eq && mkt > 0 && sp > 0) { eq = mkt - sp; mode = 'spread'; }
+      else if (!eq && mkt > 0) { eq = mkt; mode = 'assessed'; }
+      if (!eqPct && mkt > 0 && eq > 0) eqPct = Math.round((eq / mkt) * 100);
       return { ...item, _eq: eq, _eqMode: mode, _eqPct: eqPct };
     }).filter(i => i._eq > 0);
 
@@ -3621,7 +3677,9 @@ function renderEquity() {
         <span class="pill ${getCategoryClass(item.category)}">${formatCategory(item.category)}</span>
         <span class="pill pill-county">${item.county || ''}</span>
         ${item.yearsOwned ? `<span class="pill" style="background:var(--purple-bg);color:var(--purple)">&#127968; ${item.yearsOwned}</span>` : ''}
-        <span class="score-badge" style="background:${getScoreBg(item.score)};color:#fff;font-size:11px;padding:2px 7px;border-radius:10px;font-weight:700">${item.score}</span>
+        ${item.isNewListing ? `<span class="pill" style="background:#22C55E;color:#fff;font-weight:700">NEW</span>` : ''}
+        ${(item.edgeScore || 0) > 0 ? `<span class="score-badge" style="background:${(item.edgeScore >= 60 ? '#EF4444' : item.edgeScore >= 45 ? '#F59E0B' : '#06B6D4')};color:#fff;font-size:11px;padding:2px 7px;border-radius:10px;font-weight:700" title="Edge Score 0-100">Edge ${item.edgeScore}</span>` : ''}
+        <span class="score-badge" style="background:${getScoreBg(item.score)};color:#fff;font-size:11px;padding:2px 7px;border-radius:10px;font-weight:700" title="Legacy Score 1-10">S${item.score}</span>
       </div>
 
       <div class="card-details" style="padding:0 16px 8px">
@@ -4029,10 +4087,12 @@ async function loadMapPins() {
   if (activeMapCat !== 'all') {
     data = allData.filter(item => {
       const cat = (item.category || '').toLowerCase();
+      if (activeMapCat === 'edge45') return (item.edgeScore || 0) >= 45;
       if (activeMapCat === 'foreclosure') return cat.includes('foreclosure') || cat === 'master_sale';
+      if (activeMapCat === 'preforeclosure') return cat === 'preforeclosure';
       if (activeMapCat === 'liens') return ['irs_lien','mechanic_lien','hoa_lien','municipality_lien'].includes(cat);
       return cat === activeMapCat;
-    }).sort((a, b) => b.score - a.score).slice(0, TOP_PER_CAT);
+    }).sort((a, b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || (b.score - a.score)).slice(0, TOP_PER_CAT);
   } else {
     // All mode: top 100 from each main category = up to 400 total
     const cats = {
@@ -4045,11 +4105,11 @@ async function loadMapPins() {
     const seen = new Set();
     data = [];
     Object.values(cats).forEach(fn => {
-      allData.filter(fn).sort((a,b) => b.score - a.score).slice(0, TOP_PER_CAT).forEach(item => {
+      allData.filter(fn).sort((a,b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || (b.score - a.score)).slice(0, TOP_PER_CAT).forEach(item => {
         if (!seen.has(item.pdfSlug)) { seen.add(item.pdfSlug); data.push(item); }
       });
     });
-    data.sort((a, b) => b.score - a.score);
+    data.sort((a, b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || (b.score - a.score));
   }
 
   const total = data.length;

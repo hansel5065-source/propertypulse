@@ -6,8 +6,13 @@ import json, re, os, urllib.parse, urllib.request
 from datetime import datetime, date
 
 import argparse as _ap
-_args = _ap.ArgumentParser(); _args.add_argument("--input", default=None); _parsed = _args.parse_args()
+_args = _ap.ArgumentParser()
+_args.add_argument("--input", default=None)
+_args.add_argument("--skip-enrich", action="store_true",
+                   help="Skip slow Playwright-based address resolution + equity enrichment")
+_parsed = _args.parse_args()
 INPUT_NEW   = _parsed.input or r"C:\Users\hanse\AppData\Local\Temp\standalone_test.json"
+SKIP_ENRICH = _parsed.skip_enrich
 INPUT_EXIST = r"C:\Projects\property project\property-app\data.json"
 OUTPUT      = r"C:\Projects\property project\property-app\data.json"
 TODAY       = date.today()
@@ -41,11 +46,14 @@ def is_residential(prop_type: str) -> bool:
     return True  # residential match or unrecognized — keep
 
 # ── Scoring ────────────────────────────────────────────────────────────────
+# Legacy 0-10 score (kept for backward-compat UI sort)
 TYPE_SCORES = {
     "irs_lien": 7, "lis_pendens": 6, "mechanic_lien": 6,
     "foreclosure": 5, "tax_foreclosure": 5, "master_sale": 5,
     "hoa_lien": 5, "municipality_lien": 5,
+    "preforeclosure": 5, "tax_lien": 5,
     "auction": 4, "tax_sale": 4, "county_sale": 4,
+    "short_sale": 3, "bankruptcy": 3,
     "tax_delinquent": 3, "probate": 3, "reo": 3, "other": 2,
 }
 
@@ -61,11 +69,138 @@ DISTRESS_MAP = {
     "foreclosure": "active_sale", "tax_foreclosure": "active_sale",
     "auction": "active_sale", "master_sale": "active_sale",
     "tax_sale": "active_sale", "county_sale": "active_sale",
+    "preforeclosure": "active_sale",
+    "short_sale": "active_sale",
     "irs_lien": "lien_legal", "mechanic_lien": "lien_legal",
     "hoa_lien": "lien_legal", "municipality_lien": "lien_legal",
+    "tax_lien": "lien_legal",
     "lis_pendens": "lien_legal",
+    "bankruptcy": "lien_legal",
     "tax_delinquent": "delinquent",
 }
+
+# ── Edge Score (type-aware, Opportunity × Urgency on 0-100 scale) ─────────
+#
+# Playbook weights by subtype — higher = more investor edge per record.
+# Rationale:
+#   tax_foreclosure (9): cleanest title (wipes liens), highest equity potential, public auction
+#   preforeclosure  (8): direct-to-owner window, distressed but BEFORE auction competition
+#   auction         (7): public notice, bid-able now, competitive but liquid
+#   tax_lien        (7): unique play (redemption interest or deed), low competition
+#   foreclosure     (6): generic — weight when subtype ambiguous
+#   lis_pendens     (6): early legal distress signal, time to negotiate
+#   master_sale     (6): NC commissioner sale, similar to auction
+#   tax_sale        (6): county surplus auction
+#   county_sale     (5): county-level sale
+#   short_sale      (4): lender negotiation, slow, lower equity margin
+#   bankruptcy      (3): complex legal, court-supervised, hard to time
+#   probate         (3): estate-specific play, often inherited homes
+#   tax_delinquent  (3): watchlist only, no active sale
+#   reo             (2): bank-owned, market-priced — little edge
+#   fsbo            (1): no distress signal
+#   rent_to_own     (1): not distress
+TYPE_WEIGHT = {
+    "tax_foreclosure": 9,
+    "preforeclosure": 8,
+    "auction": 7, "tax_lien": 7,
+    "foreclosure": 6, "lis_pendens": 6, "master_sale": 6, "tax_sale": 6,
+    "county_sale": 5,
+    "short_sale": 4,
+    "bankruptcy": 3, "probate": 3, "tax_delinquent": 3,
+    "reo": 2,
+    "fsbo": 1, "rent_to_own": 1,
+    "other": 2,
+}
+
+# Per-subtype "playbook tag" — the investor strategy for this type of record.
+# Surfaced in the UI so the user knows HOW to approach each lead.
+PLAYBOOK = {
+    "tax_foreclosure": "Auction — cleanest title, research upset bid window.",
+    "preforeclosure":  "Direct-to-owner — contact before auction, negotiate subject-to or purchase.",
+    "auction":         "Auction — register, attend/online-bid, verify title + upset period.",
+    "tax_lien":        "Tax-lien redemption play — buy lien, collect interest or deed after redemption window.",
+    "foreclosure":     "Foreclosure — verify stage (pre/auction/post) before approach.",
+    "lis_pendens":     "Early-stage distress — owner still in possession, direct outreach works.",
+    "master_sale":     "NC master/commissioner sale — public auction, check upset bid.",
+    "tax_sale":        "County tax sale — cash-only bidding, check redemption period.",
+    "county_sale":     "County-run sale — review terms, often as-is condition.",
+    "short_sale":      "Short sale — lender approval required, 30-90 day close.",
+    "bankruptcy":      "Bankruptcy — property in court protection, requires trustee/attorney navigation.",
+    "probate":         "Probate — heir/executor outreach, often below-market for quick close.",
+    "tax_delinquent":  "Watchlist — monitor for escalation to tax_foreclosure or tax_sale.",
+    "reo":             "Bank REO — market-listed, limited negotiation edge.",
+    "fsbo":            "For sale by owner — negotiation opportunity, no distress signal.",
+    "rent_to_own":     "Rent-to-own — tenant/owner financing, not distressed.",
+    "other":           "Review required.",
+}
+
+
+def compute_edge_score(r):
+    """
+    Edge Score (0-100) = Opportunity × Urgency.
+    Higher = more investor edge (better playbook fit × time-sensitive).
+
+    Opportunity (0-100): type weight + equity margin + rent-yield signals.
+    Urgency     (0-1.0): auction-date proximity, NEW flag, listing age.
+    """
+    category = (r.get("category") or "other").lower()
+
+    # ─ Opportunity ───────────────────────────────────────────────
+    # Base: type weight scaled 0-55 (9 → 55, 1 → 6)
+    type_wt = TYPE_WEIGHT.get(category, 2)
+    opp = type_wt * 6  # 6..54
+
+    # Equity margin — if we have assessed/EMV AND a bid/opening, reward the spread
+    tv  = parse_money(r.get("taxValue"))
+    emv = parse_money(r.get("emv") or r.get("marketValue") or 0)
+    mkt = max(tv, emv)  # whichever is bigger
+    bid = parse_money(r.get("salePrice") or r.get("openingBid") or 0)
+    # Pre-sale categories: mkt alone is valuable (owner negotiation play, no public auction yet)
+    PRE_SALE = {"preforeclosure", "lis_pendens", "bankruptcy", "tax_delinquent", "probate"}
+    if mkt > 0 and bid > 0 and mkt > bid:
+        equity_pct = (mkt - bid) / mkt
+        if equity_pct >= 0.60:   opp += 30
+        elif equity_pct >= 0.40: opp += 22
+        elif equity_pct >= 0.25: opp += 14
+        elif equity_pct >= 0.10: opp += 6
+    elif mkt > 0 and category in PRE_SALE:
+        # Direct-to-owner window — no public bid yet, knowing mkt is a real edge
+        opp += 15
+    elif mkt > 0:
+        opp += 5
+
+    # Rent-yield signal — Charlotte cap rates are tight, so lower thresholds than generic
+    est_rent = parse_money(r.get("estRent") or 0)
+    if est_rent > 0 and mkt > 0:
+        annual_yield = (est_rent * 12) / mkt
+        if annual_yield >= 0.08:   opp += 15  # 8%+ gross yield — excellent for Charlotte
+        elif annual_yield >= 0.06: opp += 10
+        elif annual_yield >= 0.045: opp += 5
+
+    # Cap opportunity at 100
+    opp = min(100, opp)
+
+    # ─ Urgency (0.0 - 1.0 multiplier) ────────────────────────────
+    urgency = 0.55  # baseline (no signals) — keeps non-urgent records visible
+
+    # Auction date proximity — sale date coming up is the #1 urgency signal
+    sale_d = parse_date(r.get("saleDate"))
+    if sale_d:
+        days = (sale_d - TODAY).days
+        if 0 <= days <= 7:   urgency = 1.00
+        elif 0 <= days <= 14: urgency = 0.90
+        elif 0 <= days <= 30: urgency = 0.80
+        elif 0 <= days <= 60: urgency = 0.70
+        elif 0 <= days <= 90: urgency = 0.60
+        elif days < 0:        urgency = 0.30  # already happened — lower priority
+        else:                  urgency = 0.55
+
+    # NEW-listing flag — fresh lead, no competition yet (high-leverage window)
+    if r.get("isNewListing"):
+        urgency = min(1.0, urgency + 0.20)
+
+    # Edge = Opportunity × Urgency, 0-100 integer
+    return round(opp * urgency)
 
 # City → county lookup for zip_loop scrapers that set all records to one county
 CITY_COUNTY = {
@@ -216,11 +351,27 @@ def dedup_key(r):
         return f"addr:{addr}|{county}"
     return None
 
+def _resolve_category(r):
+    """Pick the best category for a record.
+    Prefer listingSubtype (from foreclosure.com rich extractor) over
+    listingType (source-level default) when present.
+
+    foreclosure.com subtypes: preforeclosure, auction, reo, short_sale,
+    tax_lien, tax_foreclosure, bankruptcy, foreclosure, fsbo, rent_to_own
+    """
+    sub = (r.get("listingSubtype") or "").strip().lower()
+    if sub:
+        # These subtypes map directly to canonical categories
+        return sub
+    # Fallback to source-level listingType
+    return (r.get("listingType") or "other").lower()
+
+
 def normalize_new(r):
     """Convert standalone scraper schema → data.json schema.
     Returns (record, None) on success or (None, skip_reason) on skip.
     """
-    category = (r.get("listingType") or "other").lower()
+    category = _resolve_category(r)
     county = normalize_county(r.get("county"))
     # For zip_loop sites that set all records to one county (e.g. all → "Mecklenburg"),
     # override with city lookup from address
@@ -263,20 +414,45 @@ def normalize_new(r):
         val = parse_money(sale_price)
         sale_price = f"${val:,.0f}" if val else ""
 
-    tax_val = r.get("taxValue") or ""
-    if tax_val:
-        val = parse_money(tax_val)
+    # Market value — prefer taxValue (assessed), fall back to foreclosure.com EMV.
+    tax_val_raw = r.get("taxValue") or r.get("assessedValue") or ""
+    emv_raw = r.get("emv") or ""
+    tax_val = ""
+    if tax_val_raw:
+        val = parse_money(tax_val_raw)
         tax_val = f"${val:,.0f}" if val else ""
+    elif emv_raw:
+        # No assessed yet — use EMV as placeholder (marked so we can upgrade later)
+        val = parse_money(emv_raw)
+        tax_val = f"${val:,.0f}" if val else ""
+
+    # EMV (separate field — keep even if we set taxValue from it, for traceability)
+    emv_display = ""
+    if emv_raw:
+        val = parse_money(emv_raw)
+        emv_display = f"${val:,.0f}" if val else ""
+
+    # Est. rent (monthly)
+    est_rent_raw = r.get("estRent") or ""
+    est_rent_display = ""
+    est_rent_num = parse_money(est_rent_raw) if est_rent_raw else 0
+    if est_rent_num > 0:
+        est_rent_display = f"${est_rent_num:,.0f}"
 
     distress = DISTRESS_MAP.get(category, "other")
 
-    # Compute equity % for foreclosure records
+    # Compute equity % — reward the widest market-vs-bid spread.
+    # Use whichever of (taxValue, emv) is higher to avoid missing obvious
+    # equity when one source is missing.
     estimated_equity = ""
-    if category in ("foreclosure", "tax_foreclosure", "hoa_foreclosure", "master_sale", "auction"):
-        tax_val_num = parse_money(tax_val)
+    equity_cats = ("foreclosure", "tax_foreclosure", "preforeclosure",
+                   "hoa_foreclosure", "master_sale", "auction",
+                   "short_sale", "tax_sale", "tax_lien", "lis_pendens")
+    if category in equity_cats:
+        mkt = max(parse_money(tax_val), parse_money(emv_display))
         bid_num = parse_money(sale_price)
-        if tax_val_num > 0 and bid_num > 0 and tax_val_num > bid_num:
-            equity_pct = (tax_val_num - bid_num) / tax_val_num * 100
+        if mkt > 0 and bid_num > 0 and mkt > bid_num:
+            equity_pct = (mkt - bid_num) / mkt * 100
             estimated_equity = f"{equity_pct:.0f}%"
 
     rec = {
@@ -318,8 +494,17 @@ def normalize_new(r):
         "analyzed": False,
         "pdfSlug": slug(full_addr),
         "scrapedAt": r.get("scrapedAt") or datetime.utcnow().isoformat() + "Z",
+
+        # ── Rich fields from foreclosure.com (may be empty for other sources) ──
+        "listingSubtype": r.get("listingSubtype") or "",
+        "listingId":      r.get("listingId") or "",
+        "emv":            emv_display,           # foreclosure.com estimated market value
+        "estRent":        est_rent_display,      # monthly rent estimate
+        "isNewListing":   bool(r.get("isNewListing")),
+        "playbook":       PLAYBOOK.get(category, PLAYBOOK["other"]),
     }
     rec["score"] = score_record(rec)
+    rec["edgeScore"] = compute_edge_score(rec)
     # Drop tax_delinquent with no enrichment signals (score < 4 = bare address, no useful data)
     if category == "tax_delinquent" and rec["score"] < 4:
         return None, "nonresidential"
@@ -332,6 +517,12 @@ def add_distress(r):
         r["distressLevel"] = DISTRESS_MAP.get(cat, "other")
     # Re-score with updated scoring (score_risk for tax_delinquent)
     r["score"] = score_record(r)
+    # Compute/refresh edge score across existing records too, so the UI can
+    # sort everything by the same metric after a merge.
+    r["edgeScore"] = compute_edge_score(r)
+    # Attach playbook if missing
+    if not r.get("playbook"):
+        r["playbook"] = PLAYBOOK.get(cat, PLAYBOOK["other"])
     return r
 
 def keep_existing(r):
@@ -347,6 +538,14 @@ def keep_existing(r):
             return False
     # Drop REO, forfeiture, surplus (not useful for two-track system)
     if cat in ("reo", "forfeiture", "surplus"):
+        return False
+    # Drop ALL existing foreclosure.com records. Foreclosure.com is a
+    # point-in-time snapshot source (not incremental), so each fresh scrape
+    # should fully replace the previous batch. Otherwise old shallow
+    # records (no listingSubtype / EMV / estRent) block new rich records
+    # via address-based dedup.
+    source = (r.get("sourceName") or "") + " " + (r.get("sourceUrl") or "") + " " + (r.get("sourceKey") or "")
+    if "foreclosure.com" in source.lower() or "foreclosure_com" in source.lower():
         return False
     return True
 
@@ -407,8 +606,8 @@ for r in new_raw:
     merged.append(norm)
     added += 1
 
-# ── Sort by score desc ─────────────────────────────────────────────────────
-merged.sort(key=lambda x: x.get("score", 0), reverse=True)
+# ── Sort by edge score desc (falls back to legacy score) ──────────────────
+merged.sort(key=lambda x: (x.get("edgeScore", 0), x.get("score", 0)), reverse=True)
 
 print(f"\nResults:")
 print(f"  Existing kept:        {len(existing)}")
@@ -437,6 +636,28 @@ print("\nBy County:")
 for k, v in sorted(counties.items(), key=lambda x: -x[1]):
     print(f"  {k}: {v}")
 
+# Edge score distribution (shows how concentrated/spread the top-tier leads are)
+buckets = {"90-100": 0, "75-89": 0, "60-74": 0, "45-59": 0, "30-44": 0, "<30": 0}
+for r in merged:
+    e = r.get("edgeScore", 0)
+    if   e >= 90: buckets["90-100"] += 1
+    elif e >= 75: buckets["75-89"]  += 1
+    elif e >= 60: buckets["60-74"]  += 1
+    elif e >= 45: buckets["45-59"]  += 1
+    elif e >= 30: buckets["30-44"]  += 1
+    else:         buckets["<30"]    += 1
+print("\nBy Edge Score:")
+for k in ["90-100", "75-89", "60-74", "45-59", "30-44", "<30"]:
+    print(f"  {k}: {buckets[k]}")
+
+# Top 10 highest-edge records (sanity check)
+print("\nTop 10 by edge score:")
+for r in merged[:10]:
+    addr = (r.get("address") or "").split("\n")[0][:40]
+    print(f"  [{r.get('edgeScore',0):3d}] {r.get('category','?'):<18} {addr:<42} "
+          f"mkt={r.get('taxValue','—'):<10} bid={r.get('salePrice','—'):<10} "
+          f"equity={r.get('estimatedEquity','—')}")
+
 # ── Equity Enrichment ─────────────────────────────────────────────────────
 # For foreclosure records that have an opening bid but no assessed value,
 # look up the assessed value from county GIS (spatialest for NC, York portal for SC).
@@ -446,6 +667,189 @@ for k, v in sorted(counties.items(), key=lambda x: -x[1]):
 
 FORECLOSURE_CATS_ENRICH = {"foreclosure", "tax_foreclosure", "hoa_foreclosure", "master_sale", "auction"}
 SPATIALEST_COUNTIES = {"mecklenburg": "mecklenburg", "gaston": "gaston", "union": "union"}
+
+def _parse_spatialest_results(page) -> list:
+    """Parse property cards from current spatialest search results page.
+    Returns list of {"address": "...", "parcelId": "...", "assessed": float}"""
+    body = page.inner_text("body")
+    lines = [l.strip() for l in body.split("\n") if l.strip()]
+    results = []
+    i = 0
+    while i < len(lines):
+        # Address line format: "1003 DOVERIDGE ST CHARLOTTE NC"
+        if re.match(r'^\d+\s+[A-Z0-9][A-Z0-9 ]+\s+(NC|SC)$', lines[i]):
+            entry = {"address": lines[i], "parcelId": "", "assessed": 0.0}
+            for j in range(i + 1, min(i + 8, len(lines))):
+                if lines[j].startswith("Parcel:"):
+                    entry["parcelId"] = lines[j].replace("Parcel:", "").strip()
+                if lines[j].startswith("$"):
+                    m = re.search(r'\$?([\d,]+)', lines[j])
+                    if m:
+                        entry["assessed"] = float(m.group(1).replace(",", ""))
+            results.append(entry)
+        i += 1
+    return results
+
+
+def _spatialest_street_search(page, street_name: str, county_slug: str, city_hint: str = "") -> list:
+    """Search spatialest by street name, return list of dicts:
+    [{"address": "1003 DOVERIDGE ST CHARLOTTE NC", "parcelId": "20516637", "assessed": 334900.0}, ...]
+    city_hint: city name from the foreclosure record, used to filter multi-page results.
+    Returns [] on failure or no results."""
+    try:
+        base = f"https://property.spatialest.com/nc/{county_slug}"
+        page.goto(base, timeout=20000)
+        page.wait_for_timeout(3000)
+
+        # Use street name only (no house number, no zip — spatialest ignores zip anyway)
+        street_term = re.sub(r'^\d+\s+', '', street_name).strip()
+
+        search_box = page.locator('input[type="search"], input[placeholder*="search" i]').first
+        if search_box.count() == 0:
+            search_box = page.locator("input[type='text']").first
+        search_box.fill(street_term)
+        page.wait_for_timeout(1000)
+        search_box.press("Enter")
+        page.wait_for_timeout(5000)
+
+        # Single result → auto-navigated to property page
+        if "#/property/" in page.url:
+            body = page.inner_text("body")
+            lines = [l.strip() for l in body.split("\n") if l.strip()]
+            address, parcel_id, assessed = "", "", 0.0
+            for i, line in enumerate(lines):
+                if re.match(r'^\d+\s+[A-Z]', line) and ("NC" in line or "SC" in line):
+                    address = line
+                if line.startswith("Parcel:"):
+                    parcel_id = line.replace("Parcel:", "").strip()
+                if "Total Appraised Value" in line and i + 1 < len(lines):
+                    m = re.search(r'\$?([\d,]+)', lines[i + 1])
+                    if m:
+                        assessed = float(m.group(1).replace(",", ""))
+            return [{"address": address, "parcelId": parcel_id, "assessed": assessed}] if (address or parcel_id) else []
+
+        # Check for no results
+        body_check = page.inner_text("body")
+        if "No results found" in body_check:
+            return []
+
+        # Multiple results — collect from all pages (up to 5 pages to avoid timeout)
+        all_results = []
+        for page_num in range(1, 6):
+            page_results = _parse_spatialest_results(page)
+            all_results.extend(page_results)
+
+            # Apply city filter early to check if we have enough
+            if city_hint:
+                city_upper = city_hint.strip().upper()
+                city_filtered = [r for r in all_results if city_upper in r["address"].upper()]
+            else:
+                city_filtered = all_results
+
+            # Check for Next page link
+            next_link = page.locator("a:has-text('Next')").first
+            if next_link.count() == 0 or page_num >= 5:
+                break
+            next_link.click()
+            page.wait_for_timeout(3000)
+
+        # Filter by city if provided
+        if city_hint:
+            city_upper = city_hint.strip().upper()
+            filtered = [r for r in all_results if city_upper in r["address"].upper()]
+            return filtered if filtered else all_results
+        return all_results
+
+    except Exception as e:
+        print(f"  spatialest street search error: {e}")
+        return []
+
+
+def resolve_foreclosure_addresses(records: list) -> int:
+    """For foreclosure.com records with street name only (no house number),
+    query spatialest by street name to find all matching parcels.
+    If exactly 1 match → fill in full address + parcelId + taxValue.
+    If multiple matches → store candidates for manual review, skip auto-fill.
+    Returns count of records resolved."""
+
+    # Target: foreclosure records with no house number and no parcel ID
+    to_resolve = [
+        r for r in records
+        if r.get("category") in FORECLOSURE_CATS_ENRICH
+        and not r.get("parcelId")
+        and not re.match(r'^\d+\s', (r.get("address") or "").split("\n")[0])
+        and r.get("address")
+        and (r.get("county") or "").lower() in SPATIALEST_COUNTIES
+    ]
+
+    if not to_resolve:
+        print("\nNo foreclosure records need address resolution.")
+        return 0
+
+    print(f"\nResolving addresses for {len(to_resolve)} foreclosure records...")
+
+    # Group by (street_name, county, city) to minimize GIS queries
+    from collections import defaultdict
+    street_groups = defaultdict(list)
+    for r in to_resolve:
+        addr = r.get("address", "")
+        addr_lines = addr.split("\n")
+        street_line = addr_lines[0].strip()
+        county = (r.get("county") or "").lower()
+        # Extract city from second line: "Charlotte, NC 28213" -> "Charlotte"
+        city = ""
+        if len(addr_lines) > 1:
+            city_match = re.match(r'^([A-Za-z ]+),?\s*(NC|SC)', addr_lines[1].strip())
+            if city_match:
+                city = city_match.group(1).strip()
+        street_groups[(street_line, county, city)].append(r)
+
+    print(f"  Unique streets to query: {len(street_groups)}")
+    resolved = 0
+
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            page = context.new_page()
+
+            for (street_name, county, city), records in street_groups.items():
+                county_slug = SPATIALEST_COUNTIES[county]
+                candidates = _spatialest_street_search(page, street_name, county_slug, city_hint=city)
+
+                if not candidates:
+                    continue
+
+                for r in records:
+                    if len(candidates) == 1:
+                        # Single match — safe to auto-fill
+                        match = candidates[0]
+                        old_addr = r["address"].split("\n")[0]
+                        r["address"] = match["address"].title()
+                        r["parcelId"] = match["parcelId"]
+                        if match["assessed"] > 0 and not r.get("taxValue"):
+                            r["taxValue"] = f"${match['assessed']:,.0f}"
+                            bid = parse_money(r.get("openingBid") or r.get("salePrice") or 0)
+                            if bid > 0 and match["assessed"] > bid:
+                                equity_pct = (match["assessed"] - bid) / match["assessed"] * 100
+                                r["estimatedEquity"] = f"{equity_pct:.0f}%"
+                        resolved += 1
+                        print(f"  resolved: {old_addr} -> {r['address']} | equity={r.get('estimatedEquity','?')}")
+                    else:
+                        # Multiple matches — store count, skip auto-fill
+                        r["_addressCandidates"] = len(candidates)
+                        if len(candidates) <= 3:
+                            # Small set — still log them for potential manual review
+                            print(f"  {len(candidates)} candidates for: {street_name} ({city}) — skipped")
+
+            context.close()
+            browser.close()
+    except Exception as e:
+        print(f"  Address resolution error: {e}")
+
+    print(f"  Resolved: {resolved}/{len(to_resolve)}")
+    return resolved
 
 def _polaris_address_lookup(page, parcel_id: str) -> str:
     """Use POLARIS (Mecklenburg) to get full situs address for a parcel ID.
@@ -610,7 +1014,11 @@ def enrich_equity(records: list) -> int:
     print(f"  Enriched: {enriched}/{len(to_enrich)}")
     return enriched
 
-enrich_equity(merged)
+if SKIP_ENRICH:
+    print("\n[--skip-enrich] Skipping Playwright-based address resolution + equity enrichment.")
+else:
+    resolve_foreclosure_addresses(merged)
+    enrich_equity(merged)
 
 # ── Save ───────────────────────────────────────────────────────────────────
 print(f"\nSaving to {OUTPUT}...")

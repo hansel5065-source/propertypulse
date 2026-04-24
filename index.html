@@ -788,6 +788,47 @@ body {
   border-color: rgba(59,130,246,0.3);
 }
 
+/* Category tab bar (Leads page) */
+.cat-tabs::-webkit-scrollbar { display: none; }
+.cat-tab {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 14px;
+  min-width: 78px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+.cat-tab:hover { color: var(--text-primary); }
+.cat-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.cat-tab-label { font-size: 13px; line-height: 1; }
+.cat-tab-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  padding: 1px 7px;
+  border-radius: 10px;
+  min-width: 24px;
+  text-align: center;
+}
+.cat-tab.active .cat-tab-count {
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
 /* Property Cards */
 .leads-list {
   display: flex;
@@ -1636,6 +1677,31 @@ body {
 
 <!-- ===================== LEADS PAGE ===================== -->
 <section class="page" id="pageLeads" aria-label="Leads">
+  <!-- Category tab bar — prominent tabs, one per major category -->
+  <div class="cat-tabs" id="catTabs" role="tablist" style="display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;margin-bottom:6px;border-bottom:1px solid var(--border);scrollbar-width:none">
+    <button class="cat-tab active" data-cattab="all" role="tab">
+      <span class="cat-tab-label">All</span><span class="cat-tab-count" id="cat-count-all">0</span>
+    </button>
+    <button class="cat-tab" data-cattab="preforeclosure" role="tab">
+      <span class="cat-tab-label">&#128640; Pre-FC</span><span class="cat-tab-count" id="cat-count-preforeclosure">0</span>
+    </button>
+    <button class="cat-tab" data-cattab="foreclosure" role="tab">
+      <span class="cat-tab-label">&#9878; Forecl.</span><span class="cat-tab-count" id="cat-count-foreclosure">0</span>
+    </button>
+    <button class="cat-tab" data-cattab="tax_foreclosure" role="tab">
+      <span class="cat-tab-label">&#127963; Tax FC</span><span class="cat-tab-count" id="cat-count-tax_foreclosure">0</span>
+    </button>
+    <button class="cat-tab" data-cattab="tax_delinquent" role="tab">
+      <span class="cat-tab-label">&#128176; Tax Delinq.</span><span class="cat-tab-count" id="cat-count-tax_delinquent">0</span>
+    </button>
+    <button class="cat-tab" data-cattab="auction" role="tab">
+      <span class="cat-tab-label">&#128299; Auction</span><span class="cat-tab-count" id="cat-count-auction">0</span>
+    </button>
+    <button class="cat-tab" data-cattab="lis_pendens" role="tab">
+      <span class="cat-tab-label">&#128220; Lis Pend.</span><span class="cat-tab-count" id="cat-count-lis_pendens">0</span>
+    </button>
+  </div>
+
   <div class="search-container">
     <div class="search-bar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -1686,7 +1752,8 @@ body {
   <div class="filter-section">
     <div class="filter-label">Score</div>
     <div class="filter-row" id="scoreFilters">
-      <button class="chip active" data-score="all">All</button>
+      <button class="chip active" data-score="quality">&#11088; Quality</button>
+      <button class="chip" data-score="all">All (raw)</button>
       <button class="chip" data-score="edge60">&#128293; Edge 60+</button>
       <button class="chip" data-score="edge45">&#9889; Edge 45+</button>
       <button class="chip" data-score="edge30">Edge 30+</button>
@@ -2187,14 +2254,14 @@ let activeTab = localStorage.getItem('pp_activeTab') || 'pageDashboard';
 let activeCounty = localStorage.getItem('pp_county') || 'all';
 let activeCategory = localStorage.getItem('pp_category') || 'all';
 let activeDistress = localStorage.getItem('pp_distress') || 'all';
-let activeScore = localStorage.getItem('pp_score') || 'all';
+let activeScore = localStorage.getItem('pp_score') || 'quality';
 let activeSort = localStorage.getItem('pp_sort') || 'edge';
 
 const DISTRESS_MAP = {
-  active_sale: ['auction','tax_foreclosure','foreclosure','hoa_foreclosure','master_sale','county_sale'],
-  lien_legal:  ['lis_pendens','hoa_lien','municipal_lien','mechanic_lien','irs_lien','lien'],
+  active_sale: ['auction','tax_foreclosure','foreclosure','hoa_foreclosure','master_sale','county_sale','preforeclosure','short_sale'],
+  lien_legal:  ['lis_pendens','hoa_lien','municipal_lien','mechanic_lien','irs_lien','lien','bankruptcy','tax_lien'],
   delinquent:  ['tax_delinquent','tax_sale'],
-  other:       ['reo','probate','surplus','forfeiture']
+  other:       ['reo','probate','surplus','forfeiture','fsbo','rent_to_own']
 };
 let searchQuery = '';
 
@@ -2522,6 +2589,65 @@ function isActiveListing(item) {
   return true;
 }
 
+// ── QUALITY FILTER ──────────────────────────────────────────────────────────
+// A record is "quality" if it has a real street address (number + street) AND
+// at least one signal we can act on:
+//   - edgeScore >= 30 (has deal math)
+//   - is a NEW listing (fresh, low competition)
+//   - has an imminent sale date (within 90 days)
+// Keeps the good preforeclosures/foreclosures/tax_fcs, drops street-only
+// tax_delinquent stubs and stay-bound bankruptcies.
+function setActiveCategory(cat) {
+  activeCategory = cat || 'all';
+  localStorage.setItem('pp_category', activeCategory);
+  // Sync category chip row
+  document.querySelectorAll('#categoryFilters .chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.category === activeCategory);
+  });
+  // Sync the big tab bar
+  document.querySelectorAll('#catTabs .cat-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.cattab === activeCategory);
+  });
+  applyFilters();
+  renderLeads(true);
+}
+
+function updateCatTabCounts() {
+  const tabEl = document.getElementById('catTabs');
+  if (!tabEl) return;
+  // Count within the currently visible pool (after quality/distress/county/search filters,
+  // but before the category filter itself) so each tab shows what you'd see if you clicked it
+  const countFor = (catKey) => {
+    return allData.filter(item => {
+      if (activeScore === 'quality' && !isQualityLead(item)) return false;
+      if (activeCounty !== 'all' && (item.county || '').toLowerCase() !== activeCounty.toLowerCase()) return false;
+      if (catKey === 'all') return true;
+      return (item.category || '').toLowerCase() === catKey;
+    }).length;
+  };
+  tabEl.querySelectorAll('.cat-tab').forEach(t => {
+    const key = t.dataset.cattab;
+    const el = t.querySelector('.cat-tab-count');
+    if (el) el.textContent = countFor(key);
+  });
+}
+
+function isQualityLead(item) {
+  const addr = item.address || '';
+  const hasHouseNum = /^\d+\s/.test(addr);
+  if (!hasHouseNum) return false;
+  if ((item.edgeScore || 0) >= 30) return true;
+  if (item.isNewListing === true || item.isNewListing === 'true') return true;
+  if (item.saleDate) {
+    const sd = parseDate(item.saleDate);
+    if (sd) {
+      const days = (sd - new Date()) / 86400000;
+      if (days >= -7 && days <= 90) return true;
+    }
+  }
+  return false;
+}
+
 function daysUntil(dateStr) {
   const d = parseDate(dateStr);
   if (!d) return Infinity;
@@ -2705,6 +2831,7 @@ function applyFilters() {
     }
 
     // Score filter
+    if (activeScore === 'quality' && !isQualityLead(item)) return false;
     if (activeScore === 'edge60' && (item.edgeScore || 0) < 60) return false;
     if (activeScore === 'edge45' && (item.edgeScore || 0) < 45) return false;
     if (activeScore === 'edge30' && (item.edgeScore || 0) < 30) return false;
@@ -2755,6 +2882,7 @@ function applyFilters() {
   }
 
   document.getElementById('leadCount').textContent = `${filteredData.length} lead${filteredData.length !== 1 ? 's' : ''}`;
+  updateCatTabCounts();
 }
 
 // ============================================
@@ -2762,7 +2890,8 @@ function applyFilters() {
 // ============================================
 function renderDashboard() {
   // Stats
-  const totalLeads = allData.length;
+  const qualityCount = allData.filter(isQualityLead).length;
+  const totalLeads = qualityCount; // Headline number is Quality, not raw
   const FORECLOSURE_CATS = new Set(['foreclosure','tax_foreclosure','hoa_foreclosure','master_sale','auction','preforeclosure','lis_pendens','tax_sale','tax_lien','short_sale','county_sale']);
   const hotLeads = allData.filter(d => {
     if (!FORECLOSURE_CATS.has(d.category)) return false;
@@ -2776,15 +2905,16 @@ function renderDashboard() {
 
   const statGrid = document.getElementById('statGrid');
   statGrid.innerHTML = `
-    <div class="stat-card">
-      <div class="stat-icon blue">&#128202;</div>
-      <div class="stat-value" data-count="${totalLeads}">0</div>
-      <div class="stat-label">Total Leads</div>
+    <div class="stat-card" title="Quality leads: real address + deal signal (edge \u2265 30, NEW, or imminent sale)">
+      <div class="stat-icon blue">&#11088;</div>
+      <div class="stat-value" data-count="${qualityCount}">0</div>
+      <div class="stat-label">Quality Leads</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:2px">of ${allData.length.toLocaleString()} total</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon red">&#128293;</div>
       <div class="stat-value" data-count="${hotLeads}">0</div>
-      <div class="stat-label">Due &lt;30 Days</div>
+      <div class="stat-label">Priority (Edge 45+ or &lt;30d)</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon green">&#127961;</div>
@@ -2888,15 +3018,16 @@ function renderDashboard() {
       </div>`;
   }).join('');
 
-  // Hot leads — imminent sale-date foreclosures, then fill with top edgeScore preforeclosures/liens
-  const imminent = [...allData]
+  // Hot leads — Quality-only: imminent sale-date foreclosures first, then top edgeScore
+  const qualityPool = allData.filter(isQualityLead);
+  const imminent = [...qualityPool]
     .filter(d => {
       if (!FORECLOSURE_CATS.has(d.category)) return false;
       const days = daysUntil(d.saleDate);
       return days !== Infinity && days >= 0 && days <= 30;
     })
     .sort((a, b) => daysUntil(a.saleDate) - daysUntil(b.saleDate));
-  const byEdge = [...allData]
+  const byEdge = [...qualityPool]
     .filter(d => FORECLOSURE_CATS.has(d.category) && (d.edgeScore || 0) > 0)
     .sort((a, b) => (b.edgeScore || 0) - (a.edgeScore || 0));
   const seen = new Set();
@@ -2924,8 +3055,9 @@ function renderDashboard() {
     </div>`;
   }).join('');
 
-  // Top Deals — ranked by edgeScore (new 0-100 scale) with legacy score as tiebreaker
-  const topDeals = [...allData]
+  // Top Deals — Quality-gated, ranked by edgeScore
+  const topDeals = allData
+    .filter(isQualityLead)
     .filter(d => (d.edgeScore || 0) >= 30 || (d.score || 0) >= 7)
     .sort((a, b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || ((b.score || 0) - (a.score || 0)))
     .slice(0, 10);
@@ -2958,7 +3090,7 @@ function renderDashboard() {
 }
 
 function goToLead(address) {
-  // Reset all filters so the lead is guaranteed to show
+  // Reset all filters so the lead is guaranteed to show (quality gate off too)
   activeCounty = 'all';
   activeCategory = 'all';
   activeDistress = 'all';
@@ -2967,6 +3099,10 @@ function goToLead(address) {
     .forEach(c => c.classList.remove('active'));
   document.querySelectorAll('.chip[data-county="all"], .chip[data-category="all"], .chip[data-score="all"]')
     .forEach(c => c.classList.add('active'));
+  // Also sync the big cat-tab bar
+  document.querySelectorAll('#catTabs .cat-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.cattab === 'all');
+  });
   // Use first line of address only (foreclosure.com has multiline addresses)
   const searchAddr = address.split('\n')[0].trim();
   searchQuery = searchAddr;
@@ -3570,8 +3706,9 @@ function yearsOwnedNum(str) {
 const FORECLOSURE_CATS = new Set(['foreclosure','tax_foreclosure','hoa_foreclosure','master_sale','auction','tax_sale','county_sale','preforeclosure','lis_pendens','short_sale','tax_lien']);
 
 function renderEquity() {
-  // Track 1: foreclosure types only, sorted by equity %
+  // Track 1: foreclosure types only, sorted by equity %, Quality-gated
   let pool = allData
+    .filter(isQualityLead)
     .filter(item => FORECLOSURE_CATS.has((item.category || '').toLowerCase()))
     .map(item => {
       // Prefer pre-computed estimatedEquity %, then compute from taxValue-salePrice spread
@@ -3738,10 +3875,21 @@ function setupFilters() {
     ch.classList.toggle('active', ch.dataset.score === activeScore);
   });
 
+  // Restore category tab bar + chip selection
+  document.querySelectorAll('#catTabs .cat-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.cattab === activeCategory);
+  });
+  document.querySelectorAll('#categoryFilters .chip').forEach(ch => {
+    ch.classList.toggle('active', ch.dataset.category === activeCategory);
+  });
+
   // Restore sort
   document.querySelectorAll('.sort-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.sort === activeSort);
   });
+
+  // Seed tab counts
+  updateCatTabCounts();
 }
 
 // ============================================
@@ -3793,13 +3941,18 @@ function initEvents() {
   document.getElementById('categoryFilters').addEventListener('click', (e) => {
     const chip = e.target.closest('.chip');
     if (!chip) return;
-    document.querySelectorAll('#categoryFilters .chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    activeCategory = chip.dataset.category;
-    localStorage.setItem('pp_category', activeCategory);
-    applyFilters();
-    renderLeads(true);
+    setActiveCategory(chip.dataset.category);
   });
+
+  // Category tab bar (big prominent tabs at top of Leads page)
+  const catTabsEl = document.getElementById('catTabs');
+  if (catTabsEl) {
+    catTabsEl.addEventListener('click', (e) => {
+      const tab = e.target.closest('.cat-tab');
+      if (!tab) return;
+      setActiveCategory(tab.dataset.cattab);
+    });
+  }
 
   // Distress filters
   document.getElementById('distressFilters').addEventListener('click', (e) => {
@@ -4084,8 +4237,10 @@ async function loadMapPins() {
   // Build dataset: top 100 per category, or top 100 of selected filter
   const TOP_PER_CAT = 100;
   let data;
+  // Map data is Quality-gated (we never want to plot 4,000+ low-signal pins)
+  const mapPool = allData.filter(isQualityLead);
   if (activeMapCat !== 'all') {
-    data = allData.filter(item => {
+    data = mapPool.filter(item => {
       const cat = (item.category || '').toLowerCase();
       if (activeMapCat === 'edge45') return (item.edgeScore || 0) >= 45;
       if (activeMapCat === 'foreclosure') return cat.includes('foreclosure') || cat === 'master_sale';
@@ -4105,7 +4260,7 @@ async function loadMapPins() {
     const seen = new Set();
     data = [];
     Object.values(cats).forEach(fn => {
-      allData.filter(fn).sort((a,b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || (b.score - a.score)).slice(0, TOP_PER_CAT).forEach(item => {
+      mapPool.filter(fn).sort((a,b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || (b.score - a.score)).slice(0, TOP_PER_CAT).forEach(item => {
         if (!seen.has(item.pdfSlug)) { seen.add(item.pdfSlug); data.push(item); }
       });
     });

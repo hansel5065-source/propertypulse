@@ -3601,10 +3601,17 @@ function renderLeads(reset = false) {
     }
   }
   if (subEl) {
-    const count = activeCategory === 'all'
-      ? DIGEST_CATEGORIES.reduce((s, c) => s + poolForCategory(c.key).length, 0)
-      : poolForCategory(activeCategory).length;
-    subEl.textContent = `${count} lead${count !== 1 ? 's' : ''}`;
+    if (activeCategory === 'all') {
+      const total = DIGEST_CATEGORIES.reduce((s, c) => s + poolForCategory(c.key).length, 0);
+      subEl.textContent = `${total} lead${total !== 1 ? 's' : ''}`;
+    } else {
+      const total = poolForCategory(activeCategory).length;
+      if (total > TOP_N_PER_CATEGORY && !showAllInCategory) {
+        subEl.textContent = `Top ${TOP_N_PER_CATEGORY} of ${total}`;
+      } else {
+        subEl.textContent = `${total} lead${total !== 1 ? 's' : ''}`;
+      }
+    }
   }
 
   // DIGEST VIEW — "Top Picks" tab: top 10 per category, each with "See all ->".

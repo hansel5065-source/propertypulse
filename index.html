@@ -3495,12 +3495,18 @@ function buildPropertyCard(item) {
       </div>
       ${item.estRent ? `<div class="detail-item"><span class="detail-label">Est Rent</span><span class="detail-value" style="color:var(--cyan)">${formatPrice(item.estRent)}/mo</span></div>` : ''}
       ${item.beds || item.baths ? `<div class="detail-item"><span class="detail-label">Bed/Bath</span><span class="detail-value">${item.beds || '-'}/${item.baths || '-'}</span></div>` : ''}
-      ${item.sqft ? `<div class="detail-item"><span class="detail-label">Sq Ft</span><span class="detail-value">${Number(item.sqft).toLocaleString()}</span></div>` : ''}
+      ${(() => {
+        const n = Number(String(item.sqft || '').replace(/[^\d.]/g, ''));
+        return (n && !isNaN(n) && n > 0)
+          ? `<div class="detail-item"><span class="detail-label">Sq Ft</span><span class="detail-value">${n.toLocaleString()}</span></div>`
+          : '';
+      })()}
       ${item.yearsOwned ? `<div class="detail-item"><span class="detail-label">Owned</span><span class="detail-value">${item.yearsOwned}</span></div>` : ''}
       ${(() => {
         // Compute equity for categories where the math is meaningful.
         // 'assessed' mode = just market value with no lien subtracted, so we
-        // show it as "Market Value" not "Equity" to avoid misleading users.
+        // suppress it entirely when emv is already shown above (would just
+        // duplicate the Market Value line).
         const eq = computeEquity(item);
         if (eq && eq.mode !== 'assessed') {
           const modeHint = eq.mode === 'explicit' ? 'source' :
@@ -3512,7 +3518,9 @@ function buildPropertyCard(item) {
             <span class="detail-value" style="color:var(--green);font-weight:600">$${Math.round(eq.value).toLocaleString()}</span>
           </div>`;
         }
-        if (eq && eq.mode === 'assessed') {
+        if (eq && eq.mode === 'assessed' && !item.emv) {
+          // Only show Mkt Value fallback when we DON'T already have an emv
+          // line above (otherwise it duplicates).
           return `<div class="detail-item" title="Market value only — loan balance not available, so this is not true equity">
             <span class="detail-label">Mkt Value</span>
             <span class="detail-value" style="color:var(--text-muted);font-weight:600">$${Math.round(eq.value).toLocaleString()}</span>

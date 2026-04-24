@@ -3020,8 +3020,11 @@ function applyFilters() {
       return pa - pb;
     }
     if (activeSort === 'equity') {
-      const ea = parseInt(String(a.estimated_equity || a.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999;
-      const eb = parseInt(String(b.estimated_equity || b.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999;
+      // Prefer computed equity (Market - Loan/Bid); fall back to raw string
+      const eqA = computeEquity(a);
+      const eqB = computeEquity(b);
+      const ea = eqA ? eqA.value : (parseInt(String(a.estimated_equity || a.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999);
+      const eb = eqB ? eqB.value : (parseInt(String(b.estimated_equity || b.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999);
       return eb - ea;
     }
     if (activeSort === 'years') {
@@ -3032,16 +3035,19 @@ function applyFilters() {
     return 0;
   });
 
-  // Update badge
+  // Update badge (may not exist if the Leads nav button was removed)
   const badge = document.getElementById('leadsBadge');
-  if (filteredData.length !== allData.length) {
-    badge.textContent = filteredData.length;
-    badge.classList.remove('hidden');
-  } else {
-    badge.classList.add('hidden');
+  if (badge) {
+    if (filteredData.length !== allData.length) {
+      badge.textContent = filteredData.length;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
   }
 
-  document.getElementById('leadCount').textContent = `${filteredData.length} lead${filteredData.length !== 1 ? 's' : ''}`;
+  const leadCountEl = document.getElementById('leadCount');
+  if (leadCountEl) leadCountEl.textContent = `${filteredData.length} lead${filteredData.length !== 1 ? 's' : ''}`;
   updateCatTabCounts();
 }
 
@@ -3447,7 +3453,24 @@ function buildPropertyCard(item) {
       ${item.beds || item.baths ? `<div class="detail-item"><span class="detail-label">Bed/Bath</span><span class="detail-value">${item.beds || '-'}/${item.baths || '-'}</span></div>` : ''}
       ${item.sqft ? `<div class="detail-item"><span class="detail-label">Sq Ft</span><span class="detail-value">${Number(item.sqft).toLocaleString()}</span></div>` : ''}
       ${item.yearsOwned ? `<div class="detail-item"><span class="detail-label">Owned</span><span class="detail-value">${item.yearsOwned}</span></div>` : ''}
-      ${item.estimatedEquity ? `<div class="detail-item"><span class="detail-label">Equity</span><span class="detail-value" style="color:var(--green);font-weight:600">${item.estimatedEquity}</span></div>` : ''}
+      ${(() => {
+        // Compute equity for categories where the math is meaningful.
+        // Falls back to the raw estimatedEquity string for other categories.
+        const eq = computeEquity(item);
+        if (eq) {
+          const modeHint = eq.mode === 'explicit' ? 'source' :
+                           eq.mode === 'spread_lb' ? 'Mkt - Loan' :
+                           eq.mode === 'spread_sp' ? 'Mkt - Bid' :
+                           'assessed only';
+          return `<div class="detail-item" title="Equity mode: ${modeHint}">
+            <span class="detail-label">Equity${eq.pct != null ? ` (${eq.pct}%)` : ''}</span>
+            <span class="detail-value" style="color:var(--green);font-weight:600">$${Math.round(eq.value).toLocaleString()}</span>
+          </div>`;
+        }
+        return item.estimatedEquity
+          ? `<div class="detail-item"><span class="detail-label">Equity</span><span class="detail-value" style="color:var(--green);font-weight:600">${item.estimatedEquity}</span></div>`
+          : '';
+      })()}
       ${item.loanBalance ? `<div class="detail-item"><span class="detail-label">Loan Balance</span><span class="detail-value">${item.loanBalance}</span></div>` : ''}
       ${item.estArv ? `<div class="detail-item"><span class="detail-label">Est ARV</span><span class="detail-value">${formatPrice(item.estArv)}</span></div>` : ''}
     </div>
@@ -3528,8 +3551,11 @@ function poolForCategory(catKey) {
       return pa - pb;
     }
     if (activeSort === 'equity') {
-      const ea = parseInt(String(a.estimated_equity || a.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999;
-      const eb = parseInt(String(b.estimated_equity || b.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999;
+      // Prefer computed equity (Market - Loan/Bid); fall back to raw string
+      const eqA = computeEquity(a);
+      const eqB = computeEquity(b);
+      const ea = eqA ? eqA.value : (parseInt(String(a.estimated_equity || a.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999);
+      const eb = eqB ? eqB.value : (parseInt(String(b.estimated_equity || b.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999);
       return eb - ea;
     }
     if (activeSort === 'years') {
@@ -4138,6 +4164,49 @@ let equityOwnedFilter = 'all';
 function parseEquity(val) {
   if (!val) return 0;
   return parseFloat(String(val).replace(/[$,]/g, '')) || 0;
+}
+
+// Categories where equity math is meaningful: buying takes out the lien,
+// so Market Value - Mortgage Balance is what matters. Excludes:
+//   - tax_delinquent (math is Market - Back Taxes, not Market - Mortgage)
+//   - short_sale (negative equity by definition)
+const EQUITY_CATEGORIES = new Set([
+  'preforeclosure','foreclosure','tax_foreclosure','hoa_foreclosure',
+  'master_sale','auction','tax_sale','county_sale','lis_pendens','bankruptcy'
+]);
+
+// Compute estimated equity for an item. Returns { value, pct, mode } or null
+// if we don't have enough signal. "mode" tells us how confident we are:
+//   - 'pct_given'  : source provided an explicit equity %
+//   - 'spread_lb'  : Market Value minus Loan Balance (best case)
+//   - 'spread_sp'  : Market Value minus Sale / Current Bid
+//   - 'assessed'   : Market Value alone (no lien subtracted — worst case)
+function computeEquity(item) {
+  if (!item || !EQUITY_CATEGORIES.has((item.category || '').toLowerCase())) return null;
+
+  // Prefer an explicit % if the source gave one (e.g. "65%")
+  let pct = null;
+  const eqStr = item.estimatedEquity || item.equity || '';
+  if (typeof eqStr === 'string' && eqStr.trim().endsWith('%')) {
+    pct = parseFloat(eqStr);
+  }
+
+  const mkt = parseEquity(item.emv) || parseEquity(item.taxValue);
+  const lb  = parseEquity(item.loanBalance);
+  const sp  = parseEquity(item.salePrice);
+  const explicitEq = parseEquity(item.estimatedEquity);
+
+  let value = 0;
+  let mode = null;
+  if (explicitEq && !isNaN(explicitEq) && explicitEq > 0) { value = explicitEq; mode = 'explicit'; }
+  else if (mkt > 0 && lb > 0)                              { value = mkt - lb;   mode = 'spread_lb'; }
+  else if (mkt > 0 && sp > 0 && sp < mkt)                  { value = mkt - sp;   mode = 'spread_sp'; }
+  else if (mkt > 0)                                         { value = mkt;        mode = 'assessed'; }
+
+  if (!value || value <= 0) return null;
+  if (pct == null && mkt > 0) pct = Math.round((value / mkt) * 100);
+
+  return { value, pct, mode };
 }
 
 function yearsOwnedNum(str) {

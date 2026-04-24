@@ -3254,9 +3254,19 @@ function renderDashboard() {
     </div>`;
   }).join('');
 
-  // Top Deals — Quality-gated, ranked by edgeScore
+  // Top Deals — Quality-gated, ranked by edgeScore. Also requires a real
+  // financial signal so we don't surface "Unknown Owner / -- / --" cards
+  // that scored high purely on imminent sale date.
+  const topDealsHasValueSignal = (item) => {
+    const v = parseEquity(item.taxValue) || parseEquity(item.emv) || parseEquity(item.salePrice) || parseEquity(item.openingBid) || parseEquity(item.estArv);
+    if (v > 0) return true;
+    const owner = (item.ownerName || '').trim().toLowerCase();
+    const hasOwner = owner && !owner.startsWith('unknown');
+    return hasOwner && !!item.parcelId;
+  };
   const topDeals = allData
     .filter(isQualityLead)
+    .filter(topDealsHasValueSignal)
     .filter(d => (d.edgeScore || 0) >= 30 || (d.score || 0) >= 7)
     .sort((a, b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || ((b.score || 0) - (a.score || 0)))
     .slice(0, 10);
@@ -3634,10 +3644,22 @@ function renderLeads(reset = false) {
     const titleEl = document.getElementById('leadsCategoryTitle');
     const subEl   = document.getElementById('leadsCategorySub');
     if (titleEl) titleEl.innerHTML = '&#128293; Top 10';
+    // Require an actual financial signal — Edge Score alone fires on
+    // sale-date + house-number, which lets in "Unknown Owner / -- / --"
+    // ghosts. Top 10 should only show leads with something to act on.
+    const hasValueSignal = (item) => {
+      const v = parseEquity(item.taxValue) || parseEquity(item.emv) || parseEquity(item.salePrice) || parseEquity(item.openingBid) || parseEquity(item.estArv);
+      if (v > 0) return true;
+      // Fall back: known owner name + a parcel ID (we can at least skip-trace it)
+      const owner = (item.ownerName || '').trim().toLowerCase();
+      const hasOwner = owner && owner !== 'unknown' && owner !== 'unknown owner' && !owner.startsWith('unknown');
+      return hasOwner && !!item.parcelId;
+    };
     const top = allData
       .filter(item => {
         if (activeCounty !== 'all' && (item.county || '').toLowerCase() !== activeCounty.toLowerCase()) return false;
         if (!isQualityLead(item)) return false;
+        if (!hasValueSignal(item)) return false;
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
           const hay = `${item.address||''} ${item.ownerName||''} ${item.parcelId||''} ${item.city||''}`.toLowerCase();
@@ -3647,7 +3669,7 @@ function renderLeads(reset = false) {
       })
       .sort((a, b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || ((b.score || 0) - (a.score || 0)))
       .slice(0, 10);
-    if (subEl) subEl.textContent = `Top ${top.length} across all categories`;
+    if (subEl) subEl.textContent = `Top ${top.length} across all categories · with financial data`;
     if (top.length === 0) {
       list.innerHTML = `
         <div class="empty-state">

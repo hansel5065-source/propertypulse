@@ -1887,6 +1887,16 @@ body {
     </div>
   </div>
 
+  <!-- Equity filter — has equity vs no equity (PropWire-enriched data) -->
+  <div class="filter-section">
+    <div class="filter-label">Equity</div>
+    <div class="filter-row" id="equityFilters">
+      <button class="chip active" data-equity="all">All</button>
+      <button class="chip" data-equity="yes" style="color:var(--green)">&#9989; Has Equity</button>
+      <button class="chip" data-equity="no" style="color:var(--text-muted)">&#10060; No Equity</button>
+    </div>
+  </div>
+
   <div class="sort-bar">
     <span id="leadCount">0 leads</span>
     <div class="sort-options">
@@ -2426,6 +2436,7 @@ let activeCounty = localStorage.getItem('pp_county') || 'all';
 let activeCategory = localStorage.getItem('pp_category') || 'all';
 let activeDistress = localStorage.getItem('pp_distress') || 'all';
 let activeScore = localStorage.getItem('pp_score') || 'quality';
+let activeEquity = localStorage.getItem('pp_equity') || 'all';
 let activeSort = localStorage.getItem('pp_sort') || 'edge';
 
 const DISTRESS_MAP = {
@@ -2814,6 +2825,22 @@ function updateCatTabCounts() {
   });
 }
 
+// "Has equity" means PropWire (or any source) populated a non-zero equity figure.
+// We accept either a parseable estimatedEquity OR an equityPercent string > 0.
+function hasEquity(item) {
+  const eq = item.estimatedEquity;
+  if (eq) {
+    const n = parseFloat(String(eq).replace(/[^0-9.\-]/g, ''));
+    if (!isNaN(n) && n > 0) return true;
+  }
+  const pct = item.equityPercent;
+  if (pct) {
+    const n = parseFloat(String(pct).replace(/[^0-9.\-]/g, ''));
+    if (!isNaN(n) && n > 0) return true;
+  }
+  return false;
+}
+
 function isQualityLead(item) {
   const addr = item.address || '';
   const hasHouseNum = /^\d+\s/.test(addr);
@@ -3031,6 +3058,10 @@ function applyFilters() {
     if (activeScore === 'hot' && item.score < 4) return false;
     if (activeScore === 'warm' && (item.score < 2 || item.score > 3)) return false;
     if (activeScore === 'cool' && item.score > 1) return false;
+
+    // Equity filter — "yes" requires a non-zero estimated equity OR equity %
+    if (activeEquity === 'yes' && !hasEquity(item)) return false;
+    if (activeEquity === 'no'  &&  hasEquity(item)) return false;
 
     // Search
     if (searchQuery) {
@@ -4531,6 +4562,11 @@ function setupFilters() {
     ch.classList.toggle('active', ch.dataset.score === activeScore);
   });
 
+  // Restore equity filter
+  document.querySelectorAll('#equityFilters .chip').forEach(ch => {
+    ch.classList.toggle('active', ch.dataset.equity === activeEquity);
+  });
+
   // Restore category tab bar + chip selection
   document.querySelectorAll('#catTabs .cat-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.cattab === activeCategory);
@@ -4670,6 +4706,21 @@ function initEvents() {
     applyFilters();
     renderLeads(true);
   });
+
+  // Equity filter (yes / no / all)
+  const eqFilters = document.getElementById('equityFilters');
+  if (eqFilters) {
+    eqFilters.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      document.querySelectorAll('#equityFilters .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeEquity = chip.dataset.equity;
+      localStorage.setItem('pp_equity', activeEquity);
+      applyFilters();
+      renderLeads(true);
+    });
+  }
 
   // Sort buttons
   document.querySelectorAll('.sort-btn').forEach(btn => {

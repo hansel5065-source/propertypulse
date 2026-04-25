@@ -3460,15 +3460,37 @@ function buildPropertyCard(item) {
   const edge = item.edgeScore || 0;
   const edgeColor = edge >= 60 ? 'var(--red)' : edge >= 45 ? 'var(--orange)' : edge >= 30 ? 'var(--cyan)' : 'var(--text-muted)';
   const edgeBg = edge >= 60 ? 'rgba(239,68,68,0.12)' : edge >= 45 ? 'rgba(245,158,11,0.12)' : edge >= 30 ? 'rgba(6,182,212,0.12)' : 'rgba(100,116,139,0.08)';
+  // Equity badge for the card header — one number every tab can scan.
+  const cardEq = computeEquity(item);
+  const eqBadgeHtml = (() => {
+    if (!cardEq) return '';
+    const isReal = cardEq.mode === 'explicit' || cardEq.mode === 'spread_lb' || cardEq.mode === 'spread_sp' || cardEq.mode === 'spread_tax';
+    const label = cardEq.mode === 'spread_tax' ? 'Mkt − Tax'
+               : cardEq.mode === 'spread_sp'  ? 'Mkt − Bid'
+               : cardEq.mode === 'spread_lb'  ? 'Mkt − Loan'
+               : cardEq.mode === 'explicit'   ? 'Source'
+               : 'Mkt only · loan unknown';
+    const color = isReal ? 'var(--green)' : 'var(--text-muted)';
+    const bg    = isReal ? 'rgba(34,197,94,0.10)' : 'rgba(100,116,139,0.10)';
+    const prefix = isReal ? 'Equity' : 'Mkt';
+    return `<div title="${label}" style="background:${bg};color:${color};font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;line-height:1.2;min-width:80px;text-align:right;white-space:nowrap">
+      <span style="font-size:9px;font-weight:600;opacity:0.75;display:block">${prefix}${cardEq.pct != null ? ' · ' + cardEq.pct + '%' : ''}</span>
+      $${Math.round(cardEq.value).toLocaleString()}
+    </div>`;
+  })();
+
   card.innerHTML = `
     <div class="card-top">
       <div>
         <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}</div>
         <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-        ${edge > 0 ? `<div title="Edge Score: opportunity \u00d7 urgency (0-100)" style="background:${edgeBg};color:${edgeColor};font-size:13px;font-weight:700;padding:3px 9px;border-radius:6px;line-height:1;min-width:34px;text-align:center">${edge}</div>` : ''}
-        <div class="score-badge ${getScoreClass(item.score)}" title="Legacy Score: ${item.score}/10" style="font-size:10px;padding:2px 6px;border-radius:5px;min-width:22px;text-align:center">${item.score}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        ${eqBadgeHtml}
+        <div style="display:flex;align-items:center;gap:4px">
+          ${edge > 0 ? `<div title="Edge Score: opportunity \u00d7 urgency (0-100)" style="background:${edgeBg};color:${edgeColor};font-size:13px;font-weight:700;padding:3px 9px;border-radius:6px;line-height:1;min-width:34px;text-align:center">${edge}</div>` : ''}
+          <div class="score-badge ${getScoreClass(item.score)}" title="Legacy Score: ${item.score}/10" style="font-size:10px;padding:2px 6px;border-radius:5px;min-width:22px;text-align:center">${item.score}</div>
+        </div>
       </div>
     </div>
     <div class="card-pills">
@@ -4139,6 +4161,24 @@ function renderTaxDelinquent(reset = false) {
         </span>`).join('')}
       </div>` : '';
 
+    // Tax delinquent equity: Market - Back Taxes when we have both,
+    // otherwise just market value with a "loan unknown" indicator.
+    const cardEq = computeEquity(item);
+    const eqBadgeHtml = (() => {
+      if (!cardEq) return '';
+      const isReal = cardEq.mode !== 'assessed';
+      const label = cardEq.mode === 'spread_tax' ? 'Mkt − Back Taxes'
+                 : cardEq.mode === 'explicit'    ? 'Source'
+                 : 'Mkt only · loan unknown';
+      const color = isReal ? 'var(--green)' : 'var(--text-muted)';
+      const bg    = isReal ? 'rgba(34,197,94,0.10)' : 'rgba(100,116,139,0.10)';
+      const prefix = isReal ? 'Equity' : 'Mkt';
+      return `<div title="${label}" style="background:${bg};color:${color};font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;line-height:1.2;min-width:80px;text-align:right;white-space:nowrap">
+        <span style="font-size:9px;font-weight:600;opacity:0.75;display:block">${prefix}${cardEq.pct != null ? ' · ' + cardEq.pct + '%' : ''}</span>
+        $${Math.round(cardEq.value).toLocaleString()}
+      </div>`;
+    })();
+
     const card = document.createElement('div');
     card.className = 'property-card';
     card.innerHTML = `
@@ -4148,6 +4188,7 @@ function renderTaxDelinquent(reset = false) {
           <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
         </div>
         <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${eqBadgeHtml}
           <div style="font-size:11px;color:var(--text-muted)">#${rank}</div>
           <div style="background:${rl.bg};color:${rl.color};font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap">${rl.label} ${rs}/10</div>
         </div>
@@ -4163,9 +4204,15 @@ function renderTaxDelinquent(reset = false) {
           <span class="detail-label">Assessed Value</span>
           <span class="detail-value" style="color:${taxVal >= 100000 ? 'var(--green)' : 'var(--text)'};font-weight:${taxVal >= 100000 ? '700' : '500'}">${formatPrice(item.taxValue)}</span>
         </div>
+        ${item.delinquentAmount ? `<div class="detail-item"><span class="detail-label">Back Taxes</span><span class="detail-value" style="color:var(--red);font-weight:600">${formatPrice(item.delinquentAmount)}</span></div>` : ''}
         ${item.parcelId ? `<div class="detail-item"><span class="detail-label">Parcel ID</span><span class="detail-value">${item.parcelId}</span></div>` : ''}
         ${item.beds || item.baths ? `<div class="detail-item"><span class="detail-label">Bed/Bath</span><span class="detail-value">${item.beds || '-'}/${item.baths || '-'}</span></div>` : ''}
-        ${item.sqft ? `<div class="detail-item"><span class="detail-label">Sq Ft</span><span class="detail-value">${Number(item.sqft).toLocaleString()}</span></div>` : ''}
+        ${(() => {
+          const n = Number(String(item.sqft || '').replace(/[^\d.]/g, ''));
+          return (n && !isNaN(n) && n > 0)
+            ? `<div class="detail-item"><span class="detail-label">Sq Ft</span><span class="detail-value">${n.toLocaleString()}</span></div>`
+            : '';
+        })()}
         ${item.yearBuilt ? `<div class="detail-item"><span class="detail-label">Year Built</span><span class="detail-value">${item.yearBuilt}</span></div>` : ''}
       </div>
       ${item.notes ? `<div style="padding:0 16px 8px;font-size:12px;color:var(--text-muted);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.notes}</div>` : ''}
@@ -4279,10 +4326,7 @@ function parseEquity(val) {
   return parseFloat(String(val).replace(/[$,]/g, '')) || 0;
 }
 
-// Categories where equity math is meaningful: buying takes out the lien,
-// so Market Value - Mortgage Balance is what matters. Excludes:
-//   - tax_delinquent (math is Market - Back Taxes, not Market - Mortgage)
-//   - short_sale (negative equity by definition)
+// Categories with conventional mortgage equity math: Market - Mortgage.
 const EQUITY_CATEGORIES = new Set([
   'preforeclosure','foreclosure','tax_foreclosure','hoa_foreclosure',
   'master_sale','auction','tax_sale','county_sale','lis_pendens','bankruptcy'
@@ -4290,12 +4334,14 @@ const EQUITY_CATEGORIES = new Set([
 
 // Compute estimated equity for an item. Returns { value, pct, mode } or null
 // if we don't have enough signal. "mode" tells us how confident we are:
-//   - 'pct_given'  : source provided an explicit equity %
+//   - 'explicit'   : source provided an explicit dollar or % equity
 //   - 'spread_lb'  : Market Value minus Loan Balance (best case)
 //   - 'spread_sp'  : Market Value minus Sale / Current Bid
+//   - 'spread_tax' : Market Value minus delinquent back taxes (tax_delinquent)
 //   - 'assessed'   : Market Value alone (no lien subtracted — worst case)
 function computeEquity(item) {
-  if (!item || !EQUITY_CATEGORIES.has((item.category || '').toLowerCase())) return null;
+  if (!item) return null;
+  const cat = (item.category || '').toLowerCase();
 
   // Prefer an explicit % if the source gave one (e.g. "65%")
   let pct = null;
@@ -4307,14 +4353,16 @@ function computeEquity(item) {
   const mkt = parseEquity(item.emv) || parseEquity(item.taxValue);
   const lb  = parseEquity(item.loanBalance);
   const sp  = parseEquity(item.salePrice);
+  const back = parseEquity(item.delinquentAmount);
   const explicitEq = parseEquity(item.estimatedEquity);
 
   let value = 0;
   let mode = null;
   if (explicitEq && !isNaN(explicitEq) && explicitEq > 0) { value = explicitEq; mode = 'explicit'; }
-  else if (mkt > 0 && lb > 0)                              { value = mkt - lb;   mode = 'spread_lb'; }
-  else if (mkt > 0 && sp > 0 && sp < mkt)                  { value = mkt - sp;   mode = 'spread_sp'; }
-  else if (mkt > 0)                                         { value = mkt;        mode = 'assessed'; }
+  else if (cat === 'tax_delinquent' && mkt > 0 && back > 0) { value = mkt - back; mode = 'spread_tax'; }
+  else if (EQUITY_CATEGORIES.has(cat) && mkt > 0 && lb > 0)             { value = mkt - lb;  mode = 'spread_lb'; }
+  else if (EQUITY_CATEGORIES.has(cat) && mkt > 0 && sp > 0 && sp < mkt) { value = mkt - sp;  mode = 'spread_sp'; }
+  else if (mkt > 0)                                                      { value = mkt;       mode = 'assessed'; }
 
   if (!value || value <= 0) return null;
   if (pct == null && mkt > 0) pct = Math.round((value / mkt) * 100);

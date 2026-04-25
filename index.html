@@ -2590,6 +2590,23 @@ function normalizeRow(row) {
       const parts = [rawAddr, rawCity, rawState].filter(Boolean).join(' ');
       return parts.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 60).replace(/^_|_$/g, '');
     })(),
+    // ---- PropWire enrichment fields (merge_propwire.py) ----
+    // Pass these through unchanged so cards can render the PropWire button,
+    // equity %, mortgage list, trustee details, etc.
+    propwireUrl:    row.propwireUrl    || '',
+    propwireTags:   Array.isArray(row.propwireTags) ? row.propwireTags : [],
+    equityPercent:  row.equityPercent  || '',
+    mortgages:      Array.isArray(row.mortgages) ? row.mortgages : [],
+    trusteeName:    row.trusteeName    || '',
+    trusteePhone:   row.trusteePhone   || '',
+    auctionTime:    row.auctionTime    || '',
+    auctionAddress: row.auctionAddress || '',
+    unpaidAmount:   row.unpaidAmount   || '',
+    openingBid:     row.openingBid     || '',
+    // analyzed/jobStatus passthrough so PDF button still works
+    analyzed:       row.analyzed       || false,
+    jobStatus:      row.jobStatus      || '',
+    purchaseDate:   row.purchaseDate   || '',
   };
 }
 

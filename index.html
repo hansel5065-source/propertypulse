@@ -2622,8 +2622,11 @@ async function loadData() {
   }
 
   // Priority 1: Try data.json (pre-built by pipeline.py)
+  // Cache-bust with a daily-rotating version so browsers / CDN don't serve
+  // the previous day's enrichment after we merge new PropWire data.
   try {
-    const resp = await fetch('data.json');
+    const v = new Date().toISOString().slice(0, 13); // YYYY-MM-DDTHH (per-hour bust)
+    const resp = await fetch(`data.json?v=${v}`, { cache: 'no-cache' });
     if (resp.ok) {
       const json = await resp.json();
       const arr = Array.isArray(json) ? json : (json.data || json.results || json.leads || []);

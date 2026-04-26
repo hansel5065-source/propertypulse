@@ -2629,7 +2629,10 @@ async function loadData() {
     if (resp.ok) {
       const arr = await resp.json();
       if (Array.isArray(arr) && arr.length > 0) {
-        allData = arr.filter(r => r.address || r.ownerName).filter(isActiveListing);
+        allData = arr
+          .filter(r => r.address || r.ownerName)
+          .filter(isNotGarbage)
+          .filter(isActiveListing);
         console.log(`Loaded ${allData.length} records from API`);
         return;
       }
@@ -2648,7 +2651,10 @@ async function loadData() {
       const json = await resp.json();
       const arr = Array.isArray(json) ? json : (json.data || json.results || json.leads || []);
       if (arr.length > 0) {
-        allData = arr.map(normalizeRow).filter(r => r.address || r.ownerName).filter(isActiveListing);
+        allData = arr.map(normalizeRow)
+          .filter(r => r.address || r.ownerName)
+          .filter(isNotGarbage)
+          .filter(isActiveListing);
         console.log(`Loaded ${allData.length} records from data.json`);
         return;
       }
@@ -2774,6 +2780,19 @@ function parseDate(dateStr) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// Drop records where the column mapping clearly broke. Symptoms we've seen
+// in legacy RealtyTrac CSVs: address field holds a dollar amount like
+// "$138,769" and estimatedEquity holds a percentage like "98%". Records like
+// these can't be acted on and pollute every tab + filter.
+function isNotGarbage(item) {
+  const addr = (item.address || '').trim();
+  // Address starts with $ — definitely a dollar amount, not a street.
+  if (/^\$/.test(addr)) return false;
+  // Address is purely digits with no street word — same problem.
+  if (/^\d[\d,.]*$/.test(addr)) return false;
+  return true;
+}
+
 function isActiveListing(item) {
   const status = (item.status || '').toLowerCase();
   // Exclude sold, dismissed, cancelled, redeemed, expired
@@ -2846,12 +2865,18 @@ function updateCatTabCounts() {
 }
 
 // "Has equity" means PropWire (or any source) populated a non-zero equity figure.
-// We accept either a parseable estimatedEquity OR an equityPercent string > 0.
+// We require a real dollar amount in estimatedEquity (not a percentage string
+// like "98%" left over from a broken RealtyTrac CSV) OR a non-zero equityPercent.
 function hasEquity(item) {
   const eq = item.estimatedEquity;
   if (eq) {
-    const n = parseFloat(String(eq).replace(/[^0-9.\-]/g, ''));
-    if (!isNaN(n) && n > 0) return true;
+    const s = String(eq);
+    // Reject if it's clearly a percent string ("98%") parked in the dollar field.
+    const looksLikePct = /%/.test(s) || (/^\s*\d{1,3}\s*$/.test(s.trim()) && parseFloat(s) <= 100);
+    if (!looksLikePct) {
+      const n = parseFloat(s.replace(/[^0-9.\-]/g, ''));
+      if (!isNaN(n) && n > 0) return true;
+    }
   }
   const pct = item.equityPercent;
   if (pct) {

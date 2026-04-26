@@ -1904,7 +1904,8 @@ body {
       <button class="sort-btn" data-sort="score">Score</button>
       <button class="sort-btn" data-sort="date">Date</button>
       <button class="sort-btn" data-sort="price">Price</button>
-      <button class="sort-btn" data-sort="equity">Equity</button>
+      <button class="sort-btn" data-sort="equity">Equity $</button>
+      <button class="sort-btn" data-sort="equityPct">Equity %</button>
       <button class="sort-btn" data-sort="years">Yrs Owned</button>
     </div>
   </div>
@@ -2886,6 +2887,39 @@ function hasEquity(item) {
   return false;
 }
 
+// Sort helpers — return a comparable number for equity sorts. Records with
+// no equity data sort to the bottom via a very negative sentinel.
+function equityDollars(item) {
+  // Prefer the computed equity (mkt - loan/bid). Then fall back to the
+  // explicit dollar value, but only if it's NOT a percent string parked
+  // in the dollar field (RealtyTrac CSVs sometimes did this).
+  const computed = computeEquity(item);
+  if (computed && computed.value > 0) return computed.value;
+  const eq = item.estimatedEquity;
+  if (eq) {
+    const s = String(eq);
+    const looksLikePct = /%/.test(s) || (/^\s*\d{1,3}\s*$/.test(s.trim()) && parseFloat(s) <= 100);
+    if (!looksLikePct) {
+      const n = parseFloat(s.replace(/[^0-9.\-]/g, ''));
+      if (!isNaN(n) && n > 0) return n;
+    }
+  }
+  return -999999999;
+}
+
+function equityPctValue(item) {
+  // Prefer the explicit PropWire equityPercent ("53%"). Fall back to the
+  // computed pct from computeEquity.
+  const pct = item.equityPercent;
+  if (pct) {
+    const n = parseFloat(String(pct).replace(/[^0-9.\-]/g, ''));
+    if (!isNaN(n)) return n;
+  }
+  const computed = computeEquity(item);
+  if (computed && computed.pct != null) return computed.pct;
+  return -999999999;
+}
+
 function isQualityLead(item) {
   const addr = item.address || '';
   const hasHouseNum = /^\d+\s/.test(addr);
@@ -3129,12 +3163,14 @@ function applyFilters() {
       return pa - pb;
     }
     if (activeSort === 'equity') {
-      // Prefer computed equity (Market - Loan/Bid); fall back to raw string
-      const eqA = computeEquity(a);
-      const eqB = computeEquity(b);
-      const ea = eqA ? eqA.value : (parseInt(String(a.estimated_equity || a.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999);
-      const eb = eqB ? eqB.value : (parseInt(String(b.estimated_equity || b.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999);
+      const ea = equityDollars(a);
+      const eb = equityDollars(b);
       return eb - ea;
+    }
+    if (activeSort === 'equityPct') {
+      const pa = equityPctValue(a);
+      const pb = equityPctValue(b);
+      return pb - pa;
     }
     if (activeSort === 'years') {
       const ya = parseFloat(a.years_owned || a.yearsOwned || 0);
@@ -3704,12 +3740,14 @@ function poolForCategory(catKey) {
       return pa - pb;
     }
     if (activeSort === 'equity') {
-      // Prefer computed equity (Market - Loan/Bid); fall back to raw string
-      const eqA = computeEquity(a);
-      const eqB = computeEquity(b);
-      const ea = eqA ? eqA.value : (parseInt(String(a.estimated_equity || a.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999);
-      const eb = eqB ? eqB.value : (parseInt(String(b.estimated_equity || b.estimatedEquity || '').replace(/[^0-9-]/g, '')) || -999999999);
+      const ea = equityDollars(a);
+      const eb = equityDollars(b);
       return eb - ea;
+    }
+    if (activeSort === 'equityPct') {
+      const pa = equityPctValue(a);
+      const pb = equityPctValue(b);
+      return pb - pa;
     }
     if (activeSort === 'years') {
       const ya = parseFloat(a.years_owned || a.yearsOwned || 0);

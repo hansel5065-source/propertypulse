@@ -3671,6 +3671,14 @@ function poolForCategory(catKey) {
     if (activeScore === 'hot' && item.score < 4) return false;
     if (activeScore === 'warm' && (item.score < 2 || item.score > 3)) return false;
     if (activeScore === 'cool' && item.score > 1) return false;
+    // Equity filter — must match the chip selection.
+    if (activeEquity === 'yes' && !hasEquity(item)) return false;
+    if (activeEquity === 'no'  &&  hasEquity(item)) return false;
+    // Distress level filter
+    if (activeDistress !== 'all') {
+      const allowed = (typeof DISTRESS_MAP !== 'undefined' && DISTRESS_MAP[activeDistress]) || [];
+      if (!allowed.includes(item.category)) return false;
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const searchable = `${item.address} ${item.ownerName} ${item.city} ${item.county}`.toLowerCase();
@@ -3754,6 +3762,8 @@ function renderLeads(reset = false) {
         if (activeCounty !== 'all' && (item.county || '').toLowerCase() !== activeCounty.toLowerCase()) return false;
         if (!isQualityLead(item)) return false;
         if (!hasValueSignal(item)) return false;
+        if (activeEquity === 'yes' && !hasEquity(item)) return false;
+        if (activeEquity === 'no'  &&  hasEquity(item)) return false;
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
           const hay = `${item.address||''} ${item.ownerName||''} ${item.parcelId||''} ${item.city||''}`.toLowerCase();

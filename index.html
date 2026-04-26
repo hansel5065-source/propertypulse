@@ -3000,6 +3000,27 @@ function getDistressBadge(item) {
   return '';
 }
 
+// Map a record's source string to a short button label / tooltip / "open"
+// verb. Used by the source link button on every property card so the user
+// knows where they're being sent.
+function sourceLabel(item) {
+  const s = (item.source || '').toLowerCase();
+  if (s.includes('foreclosure.com'))         return { label: 'Foreclosure.com', tip: 'Open Foreclosure.com listing' };
+  if (s.includes('hutchens'))                return { label: 'Hutchens',        tip: 'Open Hutchens Law sales list' };
+  if (s.includes('realtytrac'))              return { label: 'RealtyTrac',      tip: 'Open RealtyTrac listing' };
+  if (s.includes('foreclosurelistings'))     return { label: 'FCList',          tip: 'Open ForeclosureListings.com' };
+  if (s.includes('kania'))                   return { label: 'Kania',           tip: 'Open Kania Law tax foreclosure' };
+  if (s.includes('rbc') || s.includes('wendy bigham')) return { label: 'RBC',   tip: 'Open RBC Wendy Bigham listing' };
+  if (s.includes('mecklenburg oca'))         return { label: 'Meck OCA',        tip: 'Open Mecklenburg OCA listing' };
+  if (s.includes('mcclatchy'))               return { label: 'Legal Notice',    tip: 'Open McClatchy legal notice' };
+  if (s.includes('union county'))            return { label: 'Union Co.',       tip: 'Open Union County listing' };
+  if (s.includes('gaston county'))           return { label: 'Gaston Co.',      tip: 'Open Gaston County listing' };
+  if (s.includes('mecklenburg county'))      return { label: 'Meck Co.',        tip: 'Open Mecklenburg County listing' };
+  if (s.includes('york county'))             return { label: 'York Co.',        tip: 'Open York County listing' };
+  if (s.includes('auction.com'))             return { label: 'Auction.com',     tip: 'Open Auction.com listing' };
+  return { label: 'Listing', tip: 'Open original listing' };
+}
+
 function getActionStep(item) {
   const cat = (item.category || '').toLowerCase();
   const days = daysUntil(item.saleDate);
@@ -3669,10 +3690,10 @@ function buildPropertyCard(item) {
     ${item.source ? `<div style="padding:0 16px 8px;font-size:11px;color:var(--text-muted)">Source: ${item.source}</div>` : ''}
     <div style="padding:0 16px 10px;font-size:12px;color:var(--accent);font-weight:500">Next: ${getActionStep(item)}</div>
     <div class="card-actions">
-      ${item.listingUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.listingUrl}','_blank')" aria-label="Open Foreclosure.com listing" title="Open original listing">
+      ${(() => { const sl = sourceLabel(item); return item.listingUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.listingUrl}','_blank')" aria-label="${sl.tip}" title="${sl.tip}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        Foreclosure
-      </button>` : ''}
+        ${sl.label}
+      </button>` : ''; })()}
       ${item.propwireUrl ? `<button class="card-btn" style="background:rgba(168,85,247,0.12);color:var(--purple);border-color:rgba(168,85,247,0.25)" onclick="window.open('${item.propwireUrl}','_blank')" aria-label="Verify on PropWire" title="Verify equity / loan / mortgage data on PropWire">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         PropWire
@@ -4026,10 +4047,10 @@ function _renderLeadsLegacy_unused() {
       ${item.source ? `<div style="padding:0 16px 8px;font-size:11px;color:var(--text-muted)">Source: ${item.source}</div>` : ''}
       <div style="padding:0 16px 10px;font-size:12px;color:var(--accent);font-weight:500">Next: ${getActionStep(item)}</div>
       <div class="card-actions">
-        ${item.listingUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.listingUrl}','_blank')" aria-label="Open Foreclosure.com listing" title="Open original listing">
+        ${(() => { const sl = sourceLabel(item); return item.listingUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.listingUrl}','_blank')" aria-label="${sl.tip}" title="${sl.tip}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          Foreclosure
-        </button>` : ''}
+          ${sl.label}
+        </button>` : ''; })()}
         ${item.propwireUrl ? `<button class="card-btn" style="background:rgba(168,85,247,0.12);color:var(--purple);border-color:rgba(168,85,247,0.25)" onclick="window.open('${item.propwireUrl}','_blank')" aria-label="Verify on PropWire" title="Verify equity / loan / mortgage data on PropWire">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           PropWire
@@ -4618,9 +4639,9 @@ function renderEquity() {
 
       <div style="padding:0 16px 8px;font-size:11px;color:var(--text-muted)">Source: ${item.source || '—'}</div>
       <div class="card-actions">
-        ${item.listingUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.listingUrl}','_blank')" title="Open original listing">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Foreclosure
-        </button>` : ''}
+        ${(() => { const sl = sourceLabel(item); return item.listingUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.listingUrl}','_blank')" title="${sl.tip}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>${sl.label}
+        </button>` : ''; })()}
         ${item.propwireUrl ? `<button class="card-btn" style="background:rgba(168,85,247,0.12);color:var(--purple);border-color:rgba(168,85,247,0.25)" onclick="window.open('${item.propwireUrl}','_blank')" title="Verify equity / loan / mortgage data on PropWire">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>PropWire
         </button>` : ''}
@@ -4994,7 +5015,7 @@ function makePopupHtml(item) {
     ${item.yearsOwned ? `<div class="map-popup-meta">Owned: ${item.yearsOwned}</div>` : ''}
     ${daysHtml}
     <div class="map-popup-actions">
-      ${item.listingUrl ? `<button class="map-popup-btn" style="background:rgba(239,68,68,0.15);color:var(--red)" onclick="window.open('${item.listingUrl}','_blank')" title="Open original listing">&#127968; Foreclosure</button>` : ''}
+      ${(() => { const sl = sourceLabel(item); return item.listingUrl ? `<button class="map-popup-btn" style="background:rgba(239,68,68,0.15);color:var(--red)" onclick="window.open('${item.listingUrl}','_blank')" title="${sl.tip}">&#127968; ${sl.label}</button>` : ''; })()}
       ${item.propwireUrl ? `<button class="map-popup-btn" style="background:rgba(168,85,247,0.15);color:#A855F7" onclick="window.open('${item.propwireUrl}','_blank')" title="Verify on PropWire">&#128279; PropWire</button>` : ''}
       ${isPdf ? `<button class="map-popup-btn map-popup-pdf" data-slug="${item.pdfSlug}" onclick="viewPdf(this.dataset.slug)">&#128196; PDF</button>` : ''}
     </div>

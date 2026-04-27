@@ -3745,8 +3745,14 @@ function buildPropertyCard(item) {
 // tax_delinquent — usually street-only stubs) automatically fall back
 // to the full category pool so tabs never show empty.
 function poolForCategory(catKey) {
+  // The Foreclosure tab includes both 'foreclosure' AND 'tax_foreclosure'
+  // (Kania, Mecklenburg OCA, county tax FC) since they're operationally
+  // similar — both are court-ordered sales.
+  const includedCats = catKey === 'foreclosure'
+    ? new Set(['foreclosure', 'tax_foreclosure'])
+    : new Set([catKey]);
   const filterWithQuality = (withQuality) => allData.filter(item => {
-    if ((item.category || '').toLowerCase() !== catKey) return false;
+    if (!includedCats.has((item.category || '').toLowerCase())) return false;
     if (activeCounty !== 'all' && (item.county || '').toLowerCase() !== activeCounty.toLowerCase()) return false;
     if (withQuality && activeScore === 'quality' && !isQualityLead(item)) return false;
     if (activeScore === 'edge60' && (item.edgeScore || 0) < 60) return false;

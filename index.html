@@ -1897,6 +1897,16 @@ body {
     </div>
   </div>
 
+  <!-- Foreclosure type — only meaningful on the Foreclosure tab -->
+  <div class="filter-section">
+    <div class="filter-label">Type</div>
+    <div class="filter-row" id="fcTypeFilters">
+      <button class="chip active" data-fctype="all">All</button>
+      <button class="chip" data-fctype="foreclosure">⚖ Foreclosure</button>
+      <button class="chip" data-fctype="tax_foreclosure">🏛 Tax Foreclosure</button>
+    </div>
+  </div>
+
   <!-- Source filter — pick which scraped source to view -->
   <div class="filter-section">
     <div class="filter-label">Source</div>
@@ -2459,6 +2469,7 @@ let activeDistress = localStorage.getItem('pp_distress') || 'all';
 let activeScore = localStorage.getItem('pp_score') || 'quality';
 let activeEquity = localStorage.getItem('pp_equity') || 'all';
 let activeSource = localStorage.getItem('pp_source') || 'all';
+let activeFcType = localStorage.getItem('pp_fctype') || 'all';
 let activeSort = localStorage.getItem('pp_sort') || 'edge';
 
 const DISTRESS_MAP = {
@@ -3747,10 +3758,15 @@ function buildPropertyCard(item) {
 function poolForCategory(catKey) {
   // The Foreclosure tab includes both 'foreclosure' AND 'tax_foreclosure'
   // (Kania, Mecklenburg OCA, county tax FC) since they're operationally
-  // similar — both are court-ordered sales.
-  const includedCats = catKey === 'foreclosure'
-    ? new Set(['foreclosure', 'tax_foreclosure'])
-    : new Set([catKey]);
+  // similar. The Type filter (activeFcType) lets the user narrow to one.
+  let includedCats;
+  if (catKey === 'foreclosure') {
+    if (activeFcType === 'foreclosure')          includedCats = new Set(['foreclosure']);
+    else if (activeFcType === 'tax_foreclosure') includedCats = new Set(['tax_foreclosure']);
+    else                                         includedCats = new Set(['foreclosure', 'tax_foreclosure']);
+  } else {
+    includedCats = new Set([catKey]);
+  }
   const filterWithQuality = (withQuality) => allData.filter(item => {
     if (!includedCats.has((item.category || '').toLowerCase())) return false;
     if (activeCounty !== 'all' && (item.county || '').toLowerCase() !== activeCounty.toLowerCase()) return false;
@@ -4879,6 +4895,23 @@ function initEvents() {
       chip.classList.add('active');
       activeEquity = chip.dataset.equity;
       localStorage.setItem('pp_equity', activeEquity);
+      applyFilters();
+      renderLeads(true);
+    });
+  }
+
+  const fcType = document.getElementById('fcTypeFilters');
+  if (fcType) {
+    document.querySelectorAll('#fcTypeFilters .chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.fctype === activeFcType);
+    });
+    fcType.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      document.querySelectorAll('#fcTypeFilters .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeFcType = chip.dataset.fctype;
+      localStorage.setItem('pp_fctype', activeFcType);
       applyFilters();
       renderLeads(true);
     });

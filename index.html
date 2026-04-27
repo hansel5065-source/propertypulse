@@ -3677,7 +3677,7 @@ function buildPropertyCard(item) {
   card.innerHTML = `
     <div class="card-top">
       <div>
-        <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}</div>
+        <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}${item._upsetBidEligible ? ' <span title="Property auctioned but within NC 10-day upset bid window — still actionable" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">UPSET BID</span>' : ''}</div>
         <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -4095,7 +4095,7 @@ function _renderLeadsLegacy_unused() {
     card.innerHTML = `
       <div class="card-top">
         <div>
-          <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}</div>
+          <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}${item._upsetBidEligible ? ' <span title="Property auctioned but within NC 10-day upset bid window — still actionable" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">UPSET BID</span>' : ''}</div>
           <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">

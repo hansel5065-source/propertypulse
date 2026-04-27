@@ -2828,16 +2828,44 @@ function isNotGarbage(item) {
 
 function isActiveListing(item) {
   const status = (item.status || '').toLowerCase();
-  // Exclude sold, dismissed, cancelled, redeemed, expired
-  if (status.includes('sold') || status.includes('dismissed') || status.includes('cancelled') ||
-      status.includes('redeemed') || status.includes('expired') || status.includes('closed')) return false;
-  // Exclude passed sale dates
+  const cat = (item.category || '').toLowerCase();
+  const isFcLike = (cat === 'foreclosure' || cat === 'tax_foreclosure' ||
+                    cat === 'preforeclosure' || cat === 'auction' ||
+                    cat === 'hoa_foreclosure' || cat === 'master_sale');
+
+  // NC upset-bid window: 10 days after auction sale, anyone can bid 5% higher.
+  // So a "sold" foreclosure within 10 days is STILL actionable as an upset-bid lead.
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tenDaysAgo = new Date(today); tenDaysAgo.setDate(today.getDate() - 10);
+
+  // Hard-dead statuses (NEVER actionable — owner paid, case closed, etc.)
+  if (status.includes('dismissed') || status.includes('redeemed') ||
+      status.includes('cancelled') || status.includes('canceled') ||
+      status.includes('expired') || status.includes('closed') ||
+      status.includes('settled')) return false;
+
+  // "Sold" — keep ONLY if foreclosure-like AND sold within last 10 days
+  // (upset-bid window). Otherwise drop.
+  if (status.includes('sold')) {
+    if (!isFcLike) return false;
+    const sd = parseDate(item.saleDate);
+    if (!sd) return false;          // can't verify within window — drop
+    if (sd < tenDaysAgo) return false;
+    item._upsetBidEligible = true;  // marker for UI badge
+    return true;
+  }
+
+  // Passed sale date with no "sold" status — for FC-like, keep within 10-day
+  // upset window; for others, drop.
   if (item.saleDate) {
     const sd = parseDate(item.saleDate);
     if (sd) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (sd < today) return false;
+      if (isFcLike) {
+        if (sd < tenDaysAgo) return false;
+        if (sd < today) item._upsetBidEligible = true;
+      } else {
+        if (sd < today) return false;
+      }
     }
   }
   return true;

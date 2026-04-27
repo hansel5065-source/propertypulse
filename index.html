@@ -1897,6 +1897,26 @@ body {
     </div>
   </div>
 
+  <!-- Source filter — pick which scraped source to view -->
+  <div class="filter-section">
+    <div class="filter-label">Source</div>
+    <div class="filter-row" id="sourceFilters">
+      <button class="chip active" data-source="all">All</button>
+      <button class="chip" data-source="foreclosure.com">Foreclosure.com</button>
+      <button class="chip" data-source="gaston">Gaston</button>
+      <button class="chip" data-source="union">Union</button>
+      <button class="chip" data-source="hutchens">Hutchens</button>
+      <button class="chip" data-source="york">York</button>
+      <button class="chip" data-source="kania">Kania</button>
+      <button class="chip" data-source="rbc">RBC</button>
+      <button class="chip" data-source="realtytrac">RealtyTrac</button>
+      <button class="chip" data-source="foreclosurelistings">FCList</button>
+      <button class="chip" data-source="mecklenburg">Meck</button>
+      <button class="chip" data-source="mcclatchy">McClatchy</button>
+      <button class="chip" data-source="xome">Xome</button>
+    </div>
+  </div>
+
   <div class="sort-bar">
     <span id="leadCount">0 leads</span>
     <div class="sort-options">
@@ -2438,6 +2458,7 @@ let activeCategory = localStorage.getItem('pp_category') || 'all';
 let activeDistress = localStorage.getItem('pp_distress') || 'all';
 let activeScore = localStorage.getItem('pp_score') || 'quality';
 let activeEquity = localStorage.getItem('pp_equity') || 'all';
+let activeSource = localStorage.getItem('pp_source') || 'all';
 let activeSort = localStorage.getItem('pp_sort') || 'edge';
 
 const DISTRESS_MAP = {
@@ -3163,6 +3184,12 @@ function applyFilters() {
     if (activeEquity === 'yes' && !hasEquity(item)) return false;
     if (activeEquity === 'no'  &&  hasEquity(item)) return false;
 
+    // Source filter — match substring of source field
+    if (activeSource !== 'all') {
+      const src = (item.source || '').toLowerCase();
+      if (!src.includes(activeSource)) return false;
+    }
+
     // Search
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -3731,6 +3758,11 @@ function poolForCategory(catKey) {
     // Equity filter — must match the chip selection.
     if (activeEquity === 'yes' && !hasEquity(item)) return false;
     if (activeEquity === 'no'  &&  hasEquity(item)) return false;
+    // Source filter
+    if (activeSource !== 'all') {
+      const src = (item.source || '').toLowerCase();
+      if (!src.includes(activeSource)) return false;
+    }
     // Distress level filter
     if (activeDistress !== 'all') {
       const allowed = (typeof DISTRESS_MAP !== 'undefined' && DISTRESS_MAP[activeDistress]) || [];
@@ -4831,6 +4863,24 @@ function initEvents() {
       chip.classList.add('active');
       activeEquity = chip.dataset.equity;
       localStorage.setItem('pp_equity', activeEquity);
+      applyFilters();
+      renderLeads(true);
+    });
+  }
+
+  const srcFilters = document.getElementById('sourceFilters');
+  if (srcFilters) {
+    // Restore active state from storage
+    document.querySelectorAll('#sourceFilters .chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.source === activeSource);
+    });
+    srcFilters.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      document.querySelectorAll('#sourceFilters .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeSource = chip.dataset.source;
+      localStorage.setItem('pp_source', activeSource);
       applyFilters();
       renderLeads(true);
     });

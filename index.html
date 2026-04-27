@@ -3773,8 +3773,18 @@ function poolForCategory(catKey) {
       const searchable = `${item.address} ${item.ownerName} ${item.city} ${item.county}`.toLowerCase();
       if (!searchable.includes(q)) return false;
     }
-    // Always require a real house-numbered address so cards are actionable.
-    if (!/^\d+\s/.test(item.address || '')) return false;
+    // Require a house-numbered address for everything EXCEPT tax_foreclosure
+    // and tax_delinquent — those are often vacant land / parcel-only with no
+    // street number, identified by parcel ID instead.
+    const cat = (item.category || '').toLowerCase();
+    if (cat !== 'tax_foreclosure' && cat !== 'tax_delinquent') {
+      if (!/^\d+\s/.test(item.address || '')) return false;
+    } else {
+      // For tax categories: require at least a street name OR a parcel ID
+      const hasStreet = (item.address || '').trim().length > 5;
+      const hasParcel = (item.parcelId || '').trim().length > 0;
+      if (!hasStreet && !hasParcel) return false;
+    }
     return true;
   });
   let base = filterWithQuality(true);

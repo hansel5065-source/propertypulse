@@ -1897,6 +1897,17 @@ body {
     </div>
   </div>
 
+  <!-- Motivation Score filter — likelihood owner will sell -->
+  <div class="filter-section">
+    <div class="filter-label">Motivation</div>
+    <div class="filter-row" id="motivationFilters">
+      <button class="chip active" data-motivation="all">All</button>
+      <button class="chip" data-motivation="hot" style="color:#EF4444">&#128293; Hot (6+)</button>
+      <button class="chip" data-motivation="warm" style="color:#F59E0B">&#9989; Warm (3-5)</button>
+      <button class="chip" data-motivation="cold" style="color:var(--text-muted)">&#10060; Cold</button>
+    </div>
+  </div>
+
   <!-- Foreclosure type — only meaningful on the Foreclosure tab -->
   <div class="filter-section">
     <div class="filter-label">Type</div>
@@ -2548,6 +2559,7 @@ let activeCategory = localStorage.getItem('pp_category') || 'all';
 let activeDistress = localStorage.getItem('pp_distress') || 'all';
 let activeScore = localStorage.getItem('pp_score') || 'quality';
 let activeEquity = localStorage.getItem('pp_equity') || 'all';
+let activeMotivation = localStorage.getItem('pp_motivation') || 'all';
 let activeSource = localStorage.getItem('pp_source') || 'all';
 let activeFcType = localStorage.getItem('pp_fctype') || 'all';
 let activeSort = localStorage.getItem('pp_sort') || 'edge';
@@ -3060,6 +3072,45 @@ function equityPctValue(item) {
   return -999999999;
 }
 
+// Motivation Score (0-10): how likely is the owner to sell at a discount?
+// Based on PropWire tags + equity signals. Higher = more motivated seller.
+function motivationScore(item) {
+  const tags = (item.propwireTags || []).map(t => t.toLowerCase());
+  const has = (s) => tags.some(t => t.includes(s.toLowerCase()));
+  let score = 0;
+
+  // Strongest "wants out" signals
+  if (has('tired landlord'))      score += 3;
+  if (has('mls failed'))          score += 2;
+  if (has('failed listing'))      score += 2;
+  if (has('out-of-state'))        score += 2;
+  if (has('absentee'))            score += 2;
+  if (has('empty nesters'))       score += 1;
+  if (has('intrafamily'))         score += 1;
+
+  // Financial-ability signals (CAN sell at a discount)
+  if (has('high equity'))         score += 2;
+  if (has('free & clear') ||
+      has('free and clear'))      score += 2;
+  if (has('cash buyers'))         score += 1;
+
+  // Distress signals (already in trouble)
+  if (has('vacant'))              score += 2;
+  if (has('tax delinquent'))      score += 1;
+
+  // Negatives — reduce score
+  if (has('negative equity'))     score -= 3;
+  if (has('low equity'))          score -= 1;
+
+  return Math.max(0, Math.min(10, score));
+}
+
+function motivationTier(score) {
+  if (score >= 6) return 'hot';   // Call this week
+  if (score >= 3) return 'warm';  // Mail letter
+  return 'cold';                  // Skip
+}
+
 function isQualityLead(item) {
   const addr = item.address || '';
   const hasHouseNum = /^\d+\s/.test(addr);
@@ -3302,6 +3353,12 @@ function applyFilters() {
     // Equity filter — "yes" requires a non-zero estimated equity OR equity %
     if (activeEquity === 'yes' && !hasEquity(item)) return false;
     if (activeEquity === 'no'  &&  hasEquity(item)) return false;
+
+    // Motivation filter
+    if (activeMotivation !== 'all') {
+      const tier = motivationTier(motivationScore(item));
+      if (tier !== activeMotivation) return false;
+    }
 
     // Source filter — match substring of source field
     if (activeSource !== 'all') {
@@ -3757,7 +3814,7 @@ function buildPropertyCard(item) {
   card.innerHTML = `
     <div class="card-top">
       <div>
-        <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}${item._upsetBidEligible ? ' <span title="Property auctioned but within NC 10-day upset bid window — still actionable" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">UPSET BID</span>' : ''}</div>
+        <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}${item._upsetBidEligible ? ' <span title="Property auctioned but within NC 10-day upset bid window — still actionable" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">UPSET BID</span>' : ''}${(() => { const s = motivationScore(item); const tier = motivationTier(s); if (tier === 'hot') return ` <span title="Motivation Score: ${s}/10 — call this week" style="display:inline-block;background:#EF4444;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">🔥 HOT ${s}</span>`; if (tier === 'warm') return ` <span title="Motivation Score: ${s}/10 — mail letter" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">WARM ${s}</span>`; return ''; })()}</div>
         <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -3888,6 +3945,11 @@ function poolForCategory(catKey) {
     // Equity filter — must match the chip selection.
     if (activeEquity === 'yes' && !hasEquity(item)) return false;
     if (activeEquity === 'no'  &&  hasEquity(item)) return false;
+    // Motivation filter
+    if (activeMotivation !== 'all') {
+      const tier = motivationTier(motivationScore(item));
+      if (tier !== activeMotivation) return false;
+    }
     // Source filter
     if (activeSource !== 'all') {
       const src = (item.source || '').toLowerCase();
@@ -3995,6 +4057,10 @@ function renderLeads(reset = false) {
         if (!hasValueSignal(item)) return false;
         if (activeEquity === 'yes' && !hasEquity(item)) return false;
         if (activeEquity === 'no'  &&  hasEquity(item)) return false;
+        if (activeMotivation !== 'all') {
+          const tier = motivationTier(motivationScore(item));
+          if (tier !== activeMotivation) return false;
+        }
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
           const hay = `${item.address||''} ${item.ownerName||''} ${item.parcelId||''} ${item.city||''}`.toLowerCase();
@@ -4002,9 +4068,18 @@ function renderLeads(reset = false) {
         }
         return true;
       })
-      .sort((a, b) => ((b.edgeScore || 0) - (a.edgeScore || 0)) || ((b.score || 0) - (a.score || 0)))
+      .sort((a, b) => {
+        // Sort by motivation score first (hottest leads on top), then equity %, then edge
+        const ma = motivationScore(a);
+        const mb = motivationScore(b);
+        if (mb !== ma) return mb - ma;
+        const ea = equityPctValue(a);
+        const eb = equityPctValue(b);
+        if (eb !== ea) return eb - ea;
+        return ((b.edgeScore || 0) - (a.edgeScore || 0)) || ((b.score || 0) - (a.score || 0));
+      })
       .slice(0, 10);
-    if (subEl) subEl.textContent = `Top ${top.length} across all categories · with financial data`;
+    if (subEl) subEl.textContent = `Top ${top.length} — sorted by Motivation Score · Equity % · Edge`;
     if (top.length === 0) {
       list.innerHTML = `
         <div class="empty-state">
@@ -4175,7 +4250,7 @@ function _renderLeadsLegacy_unused() {
     card.innerHTML = `
       <div class="card-top">
         <div>
-          <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}${item._upsetBidEligible ? ' <span title="Property auctioned but within NC 10-day upset bid window — still actionable" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">UPSET BID</span>' : ''}</div>
+          <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}${item._upsetBidEligible ? ' <span title="Property auctioned but within NC 10-day upset bid window — still actionable" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">UPSET BID</span>' : ''}${(() => { const s = motivationScore(item); const tier = motivationTier(s); if (tier === 'hot') return ` <span title="Motivation Score: ${s}/10 — call this week" style="display:inline-block;background:#EF4444;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">🔥 HOT ${s}</span>`; if (tier === 'warm') return ` <span title="Motivation Score: ${s}/10 — mail letter" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">WARM ${s}</span>`; return ''; })()}</div>
           <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
@@ -5003,6 +5078,23 @@ function initEvents() {
       chip.classList.add('active');
       activeEquity = chip.dataset.equity;
       localStorage.setItem('pp_equity', activeEquity);
+      applyFilters();
+      renderLeads(true);
+    });
+  }
+
+  const motivationFilters = document.getElementById('motivationFilters');
+  if (motivationFilters) {
+    document.querySelectorAll('#motivationFilters .chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.motivation === activeMotivation);
+    });
+    motivationFilters.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      document.querySelectorAll('#motivationFilters .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeMotivation = chip.dataset.motivation;
+      localStorage.setItem('pp_motivation', activeMotivation);
       applyFilters();
       renderLeads(true);
     });

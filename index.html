@@ -3354,8 +3354,8 @@ function applyFilters() {
     if (activeEquity === 'yes' && !hasEquity(item)) return false;
     if (activeEquity === 'no'  &&  hasEquity(item)) return false;
 
-    // Motivation filter
-    if (activeMotivation !== 'all') {
+    // Motivation filter — only applies to preforeclosure
+    if (activeMotivation !== 'all' && (item.category || '').toLowerCase() === 'preforeclosure') {
       const tier = motivationTier(motivationScore(item));
       if (tier !== activeMotivation) return false;
     }
@@ -3814,7 +3814,7 @@ function buildPropertyCard(item) {
   card.innerHTML = `
     <div class="card-top">
       <div>
-        <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}${item._upsetBidEligible ? ' <span title="Property auctioned but within NC 10-day upset bid window — still actionable" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">UPSET BID</span>' : ''}${(() => { const s = motivationScore(item); const tier = motivationTier(s); if (tier === 'hot') return ` <span title="Motivation Score: ${s}/10 — call this week" style="display:inline-block;background:#EF4444;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">🔥 HOT ${s}</span>`; if (tier === 'warm') return ` <span title="Motivation Score: ${s}/10 — mail letter" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">WARM ${s}</span>`; return ''; })()}</div>
+        <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}${item._upsetBidEligible ? ' <span title="Property auctioned but within NC 10-day upset bid window — still actionable" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">UPSET BID</span>' : ''}${(() => { if ((item.category || '').toLowerCase() !== 'preforeclosure') return ''; const s = motivationScore(item); const tier = motivationTier(s); if (tier === 'hot') return ` <span title="Motivation Score: ${s}/10 — call this week" style="display:inline-block;background:#EF4444;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">🔥 HOT ${s}</span>`; if (tier === 'warm') return ` <span title="Motivation Score: ${s}/10 — mail letter" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">WARM ${s}</span>`; return ''; })()}</div>
         <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -3945,8 +3945,8 @@ function poolForCategory(catKey) {
     // Equity filter — must match the chip selection.
     if (activeEquity === 'yes' && !hasEquity(item)) return false;
     if (activeEquity === 'no'  &&  hasEquity(item)) return false;
-    // Motivation filter
-    if (activeMotivation !== 'all') {
+    // Motivation filter — only applies to preforeclosure
+    if (activeMotivation !== 'all' && (item.category || '').toLowerCase() === 'preforeclosure') {
       const tier = motivationTier(motivationScore(item));
       if (tier !== activeMotivation) return false;
     }
@@ -4057,7 +4057,7 @@ function renderLeads(reset = false) {
         if (!hasValueSignal(item)) return false;
         if (activeEquity === 'yes' && !hasEquity(item)) return false;
         if (activeEquity === 'no'  &&  hasEquity(item)) return false;
-        if (activeMotivation !== 'all') {
+        if (activeMotivation !== 'all' && (item.category || '').toLowerCase() === 'preforeclosure') {
           const tier = motivationTier(motivationScore(item));
           if (tier !== activeMotivation) return false;
         }
@@ -4250,7 +4250,7 @@ function _renderLeadsLegacy_unused() {
     card.innerHTML = `
       <div class="card-top">
         <div>
-          <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}${item._upsetBidEligible ? ' <span title="Property auctioned but within NC 10-day upset bid window — still actionable" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">UPSET BID</span>' : ''}${(() => { const s = motivationScore(item); const tier = motivationTier(s); if (tier === 'hot') return ` <span title="Motivation Score: ${s}/10 — call this week" style="display:inline-block;background:#EF4444;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">🔥 HOT ${s}</span>`; if (tier === 'warm') return ` <span title="Motivation Score: ${s}/10 — mail letter" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">WARM ${s}</span>`; return ''; })()}</div>
+          <div class="card-address">${item.address}${item.isNewListing ? ' <span style="display:inline-block;background:#22C55E;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">NEW</span>' : ''}${item._upsetBidEligible ? ' <span title="Property auctioned but within NC 10-day upset bid window — still actionable" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">UPSET BID</span>' : ''}${(() => { if ((item.category || '').toLowerCase() !== 'preforeclosure') return ''; const s = motivationScore(item); const tier = motivationTier(s); if (tier === 'hot') return ` <span title="Motivation Score: ${s}/10 — call this week" style="display:inline-block;background:#EF4444;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">🔥 HOT ${s}</span>`; if (tier === 'warm') return ` <span title="Motivation Score: ${s}/10 — mail letter" style="display:inline-block;background:#F59E0B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px">WARM ${s}</span>`; return ''; })()}</div>
           <div class="card-owner">${item.ownerName || 'Unknown Owner'}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">

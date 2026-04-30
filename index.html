@@ -1915,7 +1915,6 @@ body {
       <button class="chip active" data-fctype="all">All</button>
       <button class="chip" data-fctype="foreclosure">⚖ Foreclosure</button>
       <button class="chip" data-fctype="tax_foreclosure">🏛 Tax Foreclosure</button>
-      <button class="chip" data-fctype="auction_com" style="color:#EF4444">🔨 Auction.com</button>
     </div>
   </div>
 
@@ -1936,6 +1935,7 @@ body {
       <button class="chip" data-source="mecklenburg">Meck</button>
       <button class="chip" data-source="mcclatchy">McClatchy</button>
       <button class="chip" data-source="xome">Xome</button>
+      <button class="chip" data-source="auction.com" style="color:#EF4444">🔨 Auction.com</button>
     </div>
   </div>
 
@@ -3364,7 +3364,10 @@ function applyFilters() {
     // Source filter — match substring of source field
     if (activeSource !== 'all') {
       const src = (item.source || '').toLowerCase();
-      if (!src.includes(activeSource)) return false;
+      // Special: "auction.com" matches source OR records with auctionUrl annotation
+      if (activeSource === 'auction.com') {
+        if (!src.includes('auction.com') && !item.auctionUrl) return false;
+      } else if (!src.includes(activeSource)) return false;
     }
 
     // Search
@@ -3926,23 +3929,15 @@ function poolForCategory(catKey) {
   // (Kania, Mecklenburg OCA, county tax FC) since they're operationally
   // similar. The Type filter (activeFcType) lets the user narrow to one.
   let includedCats;
-  let auctionComOnly = false;
   if (catKey === 'foreclosure') {
     if (activeFcType === 'foreclosure')          includedCats = new Set(['foreclosure']);
     else if (activeFcType === 'tax_foreclosure') includedCats = new Set(['tax_foreclosure']);
-    else if (activeFcType === 'auction_com')    { includedCats = new Set(['foreclosure', 'tax_foreclosure']); auctionComOnly = true; }
     else                                         includedCats = new Set(['foreclosure', 'tax_foreclosure']);
   } else {
     includedCats = new Set([catKey]);
   }
   const filterWithQuality = (withQuality) => allData.filter(item => {
     if (!includedCats.has((item.category || '').toLowerCase())) return false;
-    // Auction.com filter — restrict to records sourced from or annotated with Auction.com
-    if (auctionComOnly) {
-      const isAC = (item.source || '').toLowerCase().includes('auction.com')
-                || !!item.auctionUrl;
-      if (!isAC) return false;
-    }
     if (activeCounty !== 'all' && (item.county || '').toLowerCase() !== activeCounty.toLowerCase()) return false;
     if (withQuality && activeScore === 'quality' && !isQualityLead(item)) return false;
     if (activeScore === 'edge60' && (item.edgeScore || 0) < 60) return false;
@@ -3962,7 +3957,10 @@ function poolForCategory(catKey) {
     // Source filter
     if (activeSource !== 'all') {
       const src = (item.source || '').toLowerCase();
-      if (!src.includes(activeSource)) return false;
+      // Special: "auction.com" matches source OR records with auctionUrl annotation
+      if (activeSource === 'auction.com') {
+        if (!src.includes('auction.com') && !item.auctionUrl) return false;
+      } else if (!src.includes(activeSource)) return false;
     }
     // Distress level filter
     if (activeDistress !== 'all') {

@@ -2721,6 +2721,10 @@ function normalizeRow(row) {
     auctionAddress: row.auctionAddress || '',
     unpaidAmount:   row.unpaidAmount   || '',
     openingBid:     row.openingBid     || '',
+    // ---- Auction.com fields (auction_source_merge.py) ----
+    auctionUrl:     row.auctionUrl     || '',
+    auctionDate:    row.auctionDate    || '',
+    assetType:      row.assetType      || '',
     // analyzed/jobStatus passthrough so PDF button still works
     analyzed:       row.analyzed       || false,
     jobStatus:      row.jobStatus      || '',

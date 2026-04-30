@@ -1915,6 +1915,7 @@ body {
       <button class="chip active" data-fctype="all">All</button>
       <button class="chip" data-fctype="foreclosure">⚖ Foreclosure</button>
       <button class="chip" data-fctype="tax_foreclosure">🏛 Tax Foreclosure</button>
+      <button class="chip" data-fctype="auction_com" style="color:#EF4444">🔨 Auction.com</button>
     </div>
   </div>
 
@@ -3835,7 +3836,7 @@ function buildPropertyCard(item) {
     <div class="card-details">
       ${item.saleDate ? `<div class="detail-item">
         <span class="detail-label">Sale Date</span>
-        <span class="detail-value">${(parseDate(item.saleDate) || new Date()).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}</span>
+        <span class="detail-value">${(() => { const d = parseDate(item.saleDate); return d ? d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : item.saleDate; })()}</span>
         ${countdownHtml ? `<span class="detail-countdown ${countdownClass}">${countdownHtml}</span>` : ''}
       </div>` : ''}
       <div class="detail-item">
@@ -3925,15 +3926,23 @@ function poolForCategory(catKey) {
   // (Kania, Mecklenburg OCA, county tax FC) since they're operationally
   // similar. The Type filter (activeFcType) lets the user narrow to one.
   let includedCats;
+  let auctionComOnly = false;
   if (catKey === 'foreclosure') {
     if (activeFcType === 'foreclosure')          includedCats = new Set(['foreclosure']);
     else if (activeFcType === 'tax_foreclosure') includedCats = new Set(['tax_foreclosure']);
+    else if (activeFcType === 'auction_com')    { includedCats = new Set(['foreclosure', 'tax_foreclosure']); auctionComOnly = true; }
     else                                         includedCats = new Set(['foreclosure', 'tax_foreclosure']);
   } else {
     includedCats = new Set([catKey]);
   }
   const filterWithQuality = (withQuality) => allData.filter(item => {
     if (!includedCats.has((item.category || '').toLowerCase())) return false;
+    // Auction.com filter — restrict to records sourced from or annotated with Auction.com
+    if (auctionComOnly) {
+      const isAC = (item.source || '').toLowerCase().includes('auction.com')
+                || !!item.auctionUrl;
+      if (!isAC) return false;
+    }
     if (activeCounty !== 'all' && (item.county || '').toLowerCase() !== activeCounty.toLowerCase()) return false;
     if (withQuality && activeScore === 'quality' && !isQualityLead(item)) return false;
     if (activeScore === 'edge60' && (item.edgeScore || 0) < 60) return false;
@@ -4268,7 +4277,7 @@ function _renderLeadsLegacy_unused() {
       <div class="card-details">
         ${item.saleDate ? `<div class="detail-item">
           <span class="detail-label">Sale Date</span>
-          <span class="detail-value">${(parseDate(item.saleDate) || new Date()).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}</span>
+          <span class="detail-value">${(() => { const d = parseDate(item.saleDate); return d ? d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : item.saleDate; })()}</span>
           ${countdownHtml ? `<span class="detail-countdown ${countdownClass}">${countdownHtml}</span>` : ''}
         </div>` : ''}
         <div class="detail-item">

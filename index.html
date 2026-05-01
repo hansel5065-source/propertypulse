@@ -3893,11 +3893,11 @@ function buildPropertyCard(item) {
     ${item.source ? `<div style="padding:0 16px 8px;font-size:11px;color:var(--text-muted)">Source: ${item.source}</div>` : ''}
     <div style="padding:0 16px 10px;font-size:12px;color:var(--accent);font-weight:500">Next: ${getActionStep(item)}</div>
     <div class="card-actions">
-      ${(() => { const sl = sourceLabel(item); return item.listingUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.listingUrl}','_blank')" aria-label="${sl.tip}" title="${sl.tip}">
+      ${(() => { const sl = sourceLabel(item); return item.listingUrl && !item.auctionUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.listingUrl}','_blank')" aria-label="${sl.tip}" title="${sl.tip}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         ${sl.label}
       </button>` : ''; })()}
-      ${item.auctionUrl && !(item.source||'').toLowerCase().includes('auction.com') ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:#EF4444;border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.auctionUrl}','_blank')" aria-label="View on Auction.com" title="View this property's listing on Auction.com">
+      ${item.auctionUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:#EF4444;border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.auctionUrl}','_blank')" aria-label="View on Auction.com" title="View this property's listing on Auction.com">
         🔨 Auction.com
       </button>` : ''}
       ${item.propwireUrl ? `<button class="card-btn" style="background:rgba(168,85,247,0.12);color:var(--purple);border-color:rgba(168,85,247,0.25)" onclick="window.open('${item.propwireUrl}','_blank')" aria-label="Verify on PropWire" title="Verify equity / loan / mortgage data on PropWire">
@@ -4892,7 +4892,7 @@ function renderEquity() {
 
       <div style="padding:0 16px 8px;font-size:11px;color:var(--text-muted)">Source: ${item.source || '—'}</div>
       <div class="card-actions">
-        ${(() => { const sl = sourceLabel(item); return item.listingUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.listingUrl}','_blank')" title="${sl.tip}">
+        ${(() => { const sl = sourceLabel(item); return item.listingUrl && !item.auctionUrl ? `<button class="card-btn" style="background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)" onclick="window.open('${item.listingUrl}','_blank')" title="${sl.tip}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>${sl.label}
         </button>` : ''; })()}
         ${item.propwireUrl ? `<button class="card-btn" style="background:rgba(168,85,247,0.12);color:var(--purple);border-color:rgba(168,85,247,0.25)" onclick="window.open('${item.propwireUrl}','_blank')" title="Verify equity / loan / mortgage data on PropWire">

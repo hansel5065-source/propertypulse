@@ -1,6 +1,9 @@
 _archive/
 .claude/
+__pycache__/
 server.log
 *.xlsx
 node_modules/
 geocache.json
+data.json.bak.*
+foreclosure_misses.csv

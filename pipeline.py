@@ -64,7 +64,6 @@ SOURCE_BONUS = {
     "gaston_previous_foreclosure": 0,
     # REO / auction
     "hubzu": 1,
-    "foreclosure_com_meck": 1,
     "realtytrac_meck": 1,
     "foreclosure_listings_meck": 1,
 }

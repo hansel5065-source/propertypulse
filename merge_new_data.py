@@ -539,14 +539,6 @@ def keep_existing(r):
     # Drop REO, forfeiture, surplus (not useful for two-track system)
     if cat in ("reo", "forfeiture", "surplus"):
         return False
-    # Drop ALL existing foreclosure.com records. Foreclosure.com is a
-    # point-in-time snapshot source (not incremental), so each fresh scrape
-    # should fully replace the previous batch. Otherwise old shallow
-    # records (no listingSubtype / EMV / estRent) block new rich records
-    # via address-based dedup.
-    source = (r.get("sourceName") or "") + " " + (r.get("sourceUrl") or "") + " " + (r.get("sourceKey") or "")
-    if "foreclosure.com" in source.lower() or "foreclosure_com" in source.lower():
-        return False
     return True
 
 # ── Load existing ──────────────────────────────────────────────────────────

@@ -1924,9 +1924,11 @@ body {
     <div class="filter-row" id="sourceFilters">
       <button class="chip active" data-source="all">All</button>
       <button class="chip" data-source="auction.com" style="color:#EF4444">🔨 Auction.com</button>
-      <button class="chip" data-source="foreclosure.com">Foreclosure.com</button>
       <button class="chip" data-source="hutchens">Hutchens</button>
+      <button class="chip" data-source="ingle">Ingle Firm</button>
       <button class="chip" data-source="kania">Kania</button>
+      <button class="chip" data-source="rbc">RBC</button>
+      <button class="chip" data-source="propwire">PropWire</button>
       <button class="chip" data-source="xome">Xome</button>
     </div>
   </div>
@@ -3193,12 +3195,13 @@ function getDistressBadge(item) {
 // knows where they're being sent.
 function sourceLabel(item) {
   const s = (item.source || '').toLowerCase();
-  if (s.includes('foreclosure.com'))         return { label: 'Foreclosure.com', tip: 'Open Foreclosure.com listing' };
   if (s.includes('hutchens'))                return { label: 'Hutchens',        tip: 'Open Hutchens Law sales list' };
+  if (s.includes('ingle'))                   return { label: 'Ingle Firm',      tip: 'Open Ingle Firm sales list' };
   if (s.includes('realtytrac'))              return { label: 'RealtyTrac',      tip: 'Open RealtyTrac listing' };
   if (s.includes('foreclosurelistings'))     return { label: 'FCList',          tip: 'Open ForeclosureListings.com' };
   if (s.includes('kania'))                   return { label: 'Kania',           tip: 'Open Kania Law tax foreclosure' };
   if (s.includes('rbc') || s.includes('wendy bigham')) return { label: 'RBC',   tip: 'Open RBC Wendy Bigham listing' };
+  if (s.includes('propwire'))                return { label: 'PropWire',        tip: 'Open PropWire listing' };
   if (s.includes('mecklenburg oca'))         return { label: 'Meck OCA',        tip: 'Open Mecklenburg OCA listing' };
   if (s.includes('mcclatchy'))               return { label: 'Legal Notice',    tip: 'Open McClatchy legal notice' };
   if (s.includes('union county'))            return { label: 'Union Co.',       tip: 'Open Union County listing' };
@@ -3645,7 +3648,7 @@ function goToLead(address) {
   document.querySelectorAll('#catTabs .cat-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.cattab === 'all');
   });
-  // Use first line of address only (foreclosure.com has multiline addresses)
+  // Use first line of address only (some sources store multiline addresses)
   const searchAddr = address.split('\n')[0].trim();
   searchQuery = searchAddr;
   document.getElementById('searchInput').value = searchAddr;
@@ -4772,7 +4775,8 @@ function renderEquity() {
         eqPct = parseFloat(item.estimatedEquity);
       }
       let eq = parseEquity(item.estimatedEquity);
-      // Use EMV (market value from foreclosure.com) first, fall back to taxValue
+      // Use EMV (estimated market value from PropWire/Auction.com) first,
+      // fall back to taxValue.
       const mkt = parseEquity(item.emv) || parseEquity(item.taxValue);
       const tv = parseEquity(item.taxValue);
       const lb = parseEquity(item.loanBalance);
